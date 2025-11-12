@@ -1,17 +1,10 @@
-import os
-import requests
+import os, requests, uuid, json, time
 from supabase import create_client
 from datetime import datetime
 from dotenv import load_dotenv
 
-# ==========================================
-# Load environment (.env should contain:)
-# SUPABASE_URL=
-# SUPABASE_SERVICE_ROLE_KEY=
-# FMP_API_KEY=
-# ==========================================
+# ---------- env ----------
 load_dotenv()
-
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 FMP_API_KEY = os.getenv("FMP_API_KEY")
@@ -19,91 +12,83 @@ FMP_API_KEY = os.getenv("FMP_API_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 TABLE_NAME = "earnings_calendar_us"
+JOBS_TABLE = "jobs_monitor"
+JOB_NAME   = "earnings_calendar_daily"
 
+# ---------- helpers ----------
+def log_job_start(run_id):
+    supabase.table(JOBS_TABLE).insert({
+        "run_id": run_id,
+        "job_name": JOB_NAME,
+        "status": "running",
+        "started_at": datetime.utcnow().isoformat() + "Z",
+        "run_source": "render-cron",
+    }).execute()
 
-# ------------------------------------------
-# Fetch earnings data from FMP
-# ------------------------------------------
+def log_job_finish(run_id, rows_fetched, rows_inserted, started_ts):
+    supabase.table(JOBS_TABLE).update({
+        "status": "success",
+        "finished_at": datetime.utcnow().isoformat() + "Z",
+        "duration_ms": int((time.perf_counter() - started_ts) * 1000),
+        "rows_fetched": rows_fetched,
+        "rows_inserted": rows_inserted,
+    }).eq("run_id", run_id).execute()
+
+def log_job_fail(run_id, err_msg, started_ts):
+    supabase.table(JOBS_TABLE).update({
+        "status": "failed",
+        "finished_at": datetime.utcnow().isoformat() + "Z",
+        "duration_ms": int((time.perf_counter() - started_ts) * 1000),
+        "error_message": err_msg[:900],
+    }).eq("run_id", run_id).execute()
+
+# ---------- FMP ----------
 def fetch_calendar_from_fmp():
     base_url = "https://financialmodelingprep.com/api/v3/earning_calendar"
-
-    # ✅ ONLY TODAY — no range, only today's date
     today = datetime.today().strftime("%Y-%m-%d")
-
     url = f"{base_url}?from={today}&to={today}&apikey={FMP_API_KEY}"
-    print(f"🔎 Fetching earnings ONLY for today:\n{url}\n")
+    resp = requests.get(url)
+    resp.raise_for_status()
+    return resp.json()
 
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.json()
-
-
-# ------------------------------------------
-# Delete all data in table
-# ------------------------------------------
 def delete_table_data():
-    print("🗑  Deleting existing rows...")
+    supabase.table(TABLE_NAME).delete().neq("symbol", "").execute()
 
-    res = supabase.table(TABLE_NAME).delete().neq("symbol", "").execute()
-    deleted = res.count if hasattr(res, "count") else 0
-
-    print(f"✅ Deleted rows: {deleted}")
-
-
-# ------------------------------------------
-# Insert (bulk) new records
-# ------------------------------------------
 def insert_new_rows(data):
-    print("\n📥 Inserting new records...")
+    chunk, total = 200, 0
+    for i in range(0, len(data), chunk):
+        supabase.table(TABLE_NAME).insert(data[i:i+chunk]).execute()
+        total += len(data[i:i+chunk])
+    return total
 
-    chunk_size = 200
-    total_inserted = 0
-
-    for i in range(0, len(data), chunk_size):
-        chunk = data[i:i + chunk_size]
-        supabase.table(TABLE_NAME).insert(chunk).execute()
-        total_inserted += len(chunk)
-        print(f"   ✅ chunk inserted: {len(chunk)}")
-
-    print(f"✅ Total inserted: {total_inserted}")
-
-
-# ------------------------------------------
-# MAIN PROCESS
-# ------------------------------------------
+# ---------- main ----------
 def main():
-    print("\n===== Earnings Calendar Sync (FULL RESET — TODAY ONLY, US ONLY) =====\n")
+    run_id = str(uuid.uuid4())
+    t0 = time.perf_counter()
+    log_job_start(run_id)
 
-    calendar = fetch_calendar_from_fmp()
+    try:
+        calendar = fetch_calendar_from_fmp()
+        rows = [{
+            "symbol": x.get("symbol"),
+            "date": x.get("date"),
+            "eps": x.get("eps"),
+            "eps_estimated": x.get("epsEstimated"),
+            "revenue": x.get("revenue"),
+            "time": x.get("time"),
+        } for x in calendar]
 
-    print(f"📊 Raw records returned by FMP: {len(calendar)}")
+        # US filter: no '.' and len<=4
+        rows = [r for r in rows if r["symbol"] and "." not in r["symbol"] and len(r["symbol"]) <= 4]
 
-    # Extract only relevant fields
-    rows = []
-    for item in calendar:
-        rows.append({
-            "symbol": item.get("symbol"),
-            "date": item.get("date"),
-            "eps": item.get("eps"),
-            "eps_estimated": item.get("epsEstimated"),
-            "revenue": item.get("revenue"),
-            "time": item.get("time"),
-        })
+        delete_table_data()
+        inserted = insert_new_rows(rows)
 
-    # ✅ Remove non-US: no "." AND symbol length ≤ 4 (avoids OTC)
-    rows = [
-        item for item in rows
-        if item["symbol"] and "." not in item["symbol"] and len(item["symbol"]) <= 4
-    ]
+        log_job_finish(run_id, rows_fetched=len(calendar), rows_inserted=inserted, started_ts=t0)
 
-    print(f"🇺🇸 After US filter (no dot + ≤4 chars): {len(rows)}")
-
-    delete_table_data()
-    insert_new_rows(rows)
-
-    print("\n✅ DONE — table reset & refreshed ✅")
-    print("=====================================================\n")
-
+    except Exception as e:
+        log_job_fail(run_id, repr(e), started_ts=t0)
+        raise
 
 if __name__ == "__main__":
     main()
