@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 from supabase import create_client, Client
 
 # ========= CONFIG =========
-FMP_API_KEY = os.getenv("ZT73H6uSdo3b3kAmcjPxH5EGX0odj7MJ")
-SUPABASE_URL = os.getenv("https://analkikdsytxkavvmulf.supabase.co")
-SUPABASE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuYWxraWtkc3l0eGthdnZtdWxmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDgyNTI2MCwiZXhwIjoyMDgwNDAxMjYwfQ.mochVG2SkWq8ytaMkYTwZsSyyTEkbbvpupIesDQ5j3E")
+FMP_API_KEY = os.getenv("FMP_API_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
