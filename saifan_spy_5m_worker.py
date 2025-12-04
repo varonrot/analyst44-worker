@@ -10,49 +10,37 @@ SUPABASE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-TABLE_NAME = "saifan_intraday_candles_spy_5m"
+TABLE_SPY = "saifan_intraday_candles_spy_5m"
+TABLE_VIX = "saifan_intraday_vix_5m"
 
 
 # ========= HELPERS =========
 
-def fetch_spy_5m():
-    """
-    Fetch the latest 5-minute SPY candle from FMP.
-    """
-    url = f"https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY?apikey={FMP_API_KEY}"
+def fetch_symbol_5m(symbol):
+    url = f"https://financialmodelingprep.com/api/v3/historical-chart/5min/{symbol}?apikey={FMP_API_KEY}"
     try:
         res = requests.get(url, timeout=10)
         data = res.json()
         if isinstance(data, list) and len(data) > 0:
-            return data[0]  # Most recent candle
+            return data[0]
         return None
     except Exception as e:
-        print("Fetch error:", e)
+        print(f"Fetch error for {symbol}:", e)
         return None
 
 
 def is_today_utc(candle_time_str: str) -> bool:
-    """
-    Check if the candle timestamp belongs to the current UTC day.
-    """
     ct = datetime.fromisoformat(candle_time_str)
     today = datetime.now(timezone.utc).date()
     return ct.date() == today
 
 
-def candle_exists(candle_time: str) -> bool:
-    """
-    Check whether a candle with the same timestamp already exists.
-    Prevents duplicates.
-    """
-    resp = supabase.table(TABLE_NAME).select("id").eq("candle_time", candle_time).execute()
+def candle_exists(table, candle_time: str) -> bool:
+    resp = supabase.table(table).select("id").eq("candle_time", candle_time).execute()
     return len(resp.data) > 0
 
 
-def insert_candle(bar):
-    """
-    Insert a new candle into the table.
-    """
+def insert_spy(bar):
     data = {
         "candle_time": bar["date"],
         "open": float(bar["open"]),
@@ -61,35 +49,48 @@ def insert_candle(bar):
         "close": float(bar["close"]),
         "volume": int(bar["volume"])
     }
+    supabase.table(TABLE_SPY).insert(data).execute()
+    print("Inserted SPY:", data)
 
-    supabase.table(TABLE_NAME).insert(data).execute()
-    print("Inserted:", data)
+
+def insert_vix(bar):
+    data = {
+        "candle_time": bar["date"],
+        "open": float(bar["open"]),
+        "high": float(bar["high"]),
+        "low": float(bar["low"]),
+        "close": float(bar["close"])
+    }
+    supabase.table(TABLE_VIX).insert(data).execute()
+    print("Inserted VIX:", data)
 
 
 # ========= MAIN =========
 
-def main():
-    print("Running SPY 5m worker...")
-
-    bar = fetch_spy_5m()
+def process_symbol(symbol, table, insert_func):
+    bar = fetch_symbol_5m(symbol)
     if not bar:
-        print("No candle fetched.")
+        print(f"No data for {symbol}.")
         return
 
     candle_time = bar["date"]
 
-    # Skip if candle is not from today (important for accurate VWAP)
     if not is_today_utc(candle_time):
-        print(f"Skipping: candle {candle_time} is not from today.")
+        print(f"Skipping {symbol}: candle not from today.")
         return
 
-    # Skip if candle already exists
-    if candle_exists(candle_time):
-        print(f"Skipping: candle {candle_time} already exists.")
+    if candle_exists(table, candle_time):
+        print(f"Skipping {symbol}: duplicate candle {candle_time}.")
         return
 
-    # Insert candle
-    insert_candle(bar)
+    insert_func(bar)
+
+
+def main():
+    print("Running combined SPY & VIX 5m worker...")
+
+    process_symbol("SPY", TABLE_SPY, insert_spy)
+    process_symbol("VIX", TABLE_VIX, insert_vix)
 
 
 if __name__ == "__main__":
