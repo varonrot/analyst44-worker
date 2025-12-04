@@ -90,7 +90,7 @@ def main():
     print("Running combined SPY & VIX 5m worker...")
 
     process_symbol("SPY", TABLE_SPY, insert_spy)
-    process_symbol("VIX", TABLE_VIX, insert_vix)
+    process_symbol("^VIX", TABLE_VIX, insert_vix)
 
 
 if __name__ == "__main__":
