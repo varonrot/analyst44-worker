@@ -336,15 +336,34 @@ def main():
     if spy_latest:
         new_date = spy_latest["date"].split("T")[0]
 
-        resp = supabase.table(TABLE_SPY).select("candle_time").order("candle_time", desc=True).limit(1).execute()
-        if resp.data:
-            last_date = resp.data[0]["candle_time"].split("T")[0]
+        resp = (
+            supabase.table(TABLE_SPY)
+            .select("candle_time")
+            .order("candle_time", desc=True)
+            .limit(1)
+            .execute()
+        )
 
-            if new_date != last_date:
+        if resp.data:
+            last_time = resp.data[0]["candle_time"]
+            last_date = last_time.split("T")[0]
+
+            # RESET ONLY IF:
+            # 1) זה באמת יום חדש
+            # 2) עכשיו לפני 09:45 (למנוע מחיקה בזמן המסחר)
+            now_utc = datetime.now(timezone.utc)
+            if new_date != last_date and now_utc.hour < 14:  # 14:00 UTC = 09:00 NY
                 reset_spy_daily_state()
                 print("New trading day detected → SPY table RESET.")
 
-    process_symbol("SPY", TABLE_SPY, insert_spy_with_indicators)
+    bar = fetch_symbol_5m("SPY")
+    if bar:
+        candle_time = bar["date"]
+        if is_today_utc(candle_time) and not candle_exists(TABLE_SPY, "SPY", candle_time):
+            insert_spy_with_indicators(bar)
+        else:
+            print("Skipping SPY duplicate candle.")
+
     process_symbol("^VIX", TABLE_VIX, insert_vix)
 
     # === NEW: PROCESS 150 STOCKS ===
