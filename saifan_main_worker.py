@@ -38,24 +38,26 @@ def is_us_market_open():
     return open_minutes <= current_minutes <= close_minutes
 
 
-# ------------------------------------------------------
-# Main orchestrator
-# ------------------------------------------------------
+import time
+from saifan_01_spy import run_spy_cycle
+from utils.time_utils import is_market_open
+
+
 def run_saifan():
     print("=== Saifan Main Worker Started ===")
 
-    if not is_us_market_open():
-        print("[Saifan] Market closed – skipping cycle.")
-        return
-
-    print("[Saifan] Market open – running SPY module...")
-    run_spy_cycle()
+    if is_market_open():
+        print("[Saifan] Market open - running SPY module...")
+        run_spy_cycle()
+    else:
+        print("[Saifan] Market closed - skipping cycle.")
 
     print("=== Saifan cycle completed ===")
 
+    # Wait 5 minutes between cycles
+    time.sleep(300)
 
-# ------------------------------------------------------
-# Manual test
-# ------------------------------------------------------
+
 if __name__ == "__main__":
-    run_saifan()
+    while True:
+        run_saifan()

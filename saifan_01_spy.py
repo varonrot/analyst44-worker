@@ -43,7 +43,7 @@ def db_get_last_spy_row():
 # Insert row
 # ----------------------------------------
 def db_insert_spy_row(payload):
-    supabase.table(TABLE_SPY).insert(payload).execute()
+    supabase.table(TABLE_SPY).upsert(payload, on_conflict=["symbol", "candle_time"]).execute()
     print("[DB] Inserted:", payload["candle_time"])
 
 
