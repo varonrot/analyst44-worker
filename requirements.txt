@@ -3,3 +3,4 @@ python-dateutil==2.9.0.post0
 supabase
 python-dotenv
 openai>=1.52.0
+pytz
