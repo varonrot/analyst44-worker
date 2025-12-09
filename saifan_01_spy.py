@@ -66,7 +66,7 @@ def db_get_last_spy_row():
         return None
 
 
-def db_insert_spy_row(payload: dict):
+def db_upsert_spy_row(payload: dict):
     """
     Insert full SPY row with indicators.
     """
@@ -149,6 +149,23 @@ def compute_indicators(new_bar, prev_row):
 # ======================================================
 # MAIN SPY PROCESSOR
 # ======================================================
+def db_upsert_spy_row(payload: dict):
+    """
+    Insert or update the SPY bar if same candle_time already exists.
+    """
+    try:
+        supabase.table(TABLE_SPY).upsert(
+            payload,
+            on_conflict=["candle_time"]
+        ).execute()
+
+        print("[DB] UPSERT OK:", payload["candle_time"])
+        return True
+
+    except Exception as e:
+        print("[DB] Upsert failed:", e)
+        return False
+
 
 def run_spy_cycle():
     """
