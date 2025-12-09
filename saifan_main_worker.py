@@ -1,50 +1,61 @@
-import time
-from datetime import datetime, timezone
+# ======================================================
+# saifan_main_worker.py
+# Saifan Main Worker – orchestrator
+# Runs every 5 minutes, but only during US market hours.
+# Currently runs only SPY module (saifan_01_spy.py)
+# ======================================================
+
+import datetime
+import pytz
 from saifan_01_spy import run_spy_cycle
 
 
-# ---------------------------------------------------------
-# Check if US stock market is open (regular hours)
-# ---------------------------------------------------------
+# ------------------------------------------------------
+# Check if US markets are open right now
+# ------------------------------------------------------
 def is_us_market_open():
-    now_utc = datetime.now(timezone.utc)
+    """
+    Market hours: 9:30–16:00 EST
+    In UTC: 14:30–21:00
+    Monday–Friday only
+    """
+
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
 
     # Monday=0 ... Sunday=6
     if now_utc.weekday() > 4:
-        return False
+        return False  # Weekend
 
-    # US Market regular trading hours: 14:30–21:00 UTC
-    total_minutes = now_utc.hour * 60 + now_utc.minute
+    hour = now_utc.hour
+    minute = now_utc.minute
 
-    market_open = 14 * 60 + 30   # 14:30 UTC
-    market_close = 21 * 60       # 21:00 UTC
+    # Convert to minutes from midnight UTC
+    current_minutes = hour * 60 + minute
 
-    return market_open <= total_minutes <= market_close
+    open_minutes = 14 * 60 + 30   # 14:30 UTC
+    close_minutes = 21 * 60       # 21:00 UTC
+
+    return open_minutes <= current_minutes <= close_minutes
 
 
-# ---------------------------------------------------------
-# Main loop — clean, stable, production-ready
-# ---------------------------------------------------------
-def run_saifan_forever():
+# ------------------------------------------------------
+# Main orchestrator
+# ------------------------------------------------------
+def run_saifan():
     print("=== Saifan Main Worker Started ===")
 
-    while True:
-        print("\n------------------------------------------")
-        print(f"[Saifan] New cycle at {datetime.utcnow().isoformat()} UTC")
+    if not is_us_market_open():
+        print("[Saifan] Market closed – skipping cycle.")
+        return
 
-        if is_us_market_open():
-            print("[Saifan] Market OPEN — running SPY 5m module...")
-            try:
-                run_spy_cycle()
-            except Exception as e:
-                print(f"[Saifan ERROR] Failed running SPY cycle: {e}")
-        else:
-            print("[Saifan] Market CLOSED — skipping SPY cycle.")
+    print("[Saifan] Market open – running SPY module...")
+    run_spy_cycle()
 
-        print("[Saifan] Sleeping 300 seconds...\n")
-        time.sleep(300)
+    print("=== Saifan cycle completed ===")
 
 
-# ---------------------------------------------------------
+# ------------------------------------------------------
+# Manual test
+# ------------------------------------------------------
 if __name__ == "__main__":
-    run_saifan_forever()
+    run_saifan()
