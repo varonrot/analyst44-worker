@@ -13,18 +13,18 @@ def is_us_market_open():
     if now_utc.weekday() > 4:
         return False
 
-    # Minutes since midnight
+    # Minutes since midnight UTC
+    # US Market regular trading hours: 14:30–21:00 UTC
     total_minutes = now_utc.hour * 60 + now_utc.minute
 
-    # Regular hours: 14:30–21:00 UTC (9:30–16:00 ET)
-    market_open = 14 * 60 + 30
-    market_close = 21 * 60
+    market_open = 14 * 60 + 30   # 14:30 UTC
+    market_close = 21 * 60       # 21:00 UTC
 
     return market_open <= total_minutes <= market_close
 
 
 # ---------------------------------------------------------
-# Main loop (runs every 5 minutes)
+# Main loop — runs every 5 minutes, gets only the latest SPY bar
 # ---------------------------------------------------------
 def run_saifan_forever():
     print("=== Saifan Main Worker Started ===")
@@ -34,14 +34,13 @@ def run_saifan_forever():
         print(f"[Saifan] New cycle at {datetime.utcnow().isoformat()} UTC")
 
         if is_us_market_open():
-            print("[Saifan] Market open - running SPY module...")
+            print("[Saifan] Market open - running SPY 5m module...")
             run_spy_cycle()
         else:
-            print("[Saifan] Market closed - skipping SPY processing.")
+            print("[Saifan] Market closed - skipping SPY module.")
 
         print("[Saifan] Cycle completed. Sleeping 300 seconds...\n")
-
-        time.sleep(300)  # 5 minutes
+        time.sleep(300)  # sleep 5 minutes exactly
 
 
 # ---------------------------------------------------------

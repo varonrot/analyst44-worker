@@ -2,7 +2,6 @@ import os
 import requests
 from supabase import create_client
 
-
 # Environment variables
 FMP_API_KEY = os.getenv("FMP_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -14,7 +13,7 @@ TABLE_SPY = "saifan_intraday_candles_spy_5m"
 
 
 # ---------------------------------------------------------
-# Fetch last real 5-minute bar from FMP (official OHLC)
+# Fetch only last official 5-minute bar (OHLC)
 # ---------------------------------------------------------
 def fetch_last_spy_5m_bar():
     url = f"https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY?apikey={FMP_API_KEY}"
@@ -28,13 +27,11 @@ def fetch_last_spy_5m_bar():
     # FMP returns newest bar first → sort ascending
     data_sorted = sorted(data, key=lambda x: x["date"])
 
-    # Extract only the most recent official 5-minute bar
-    last_bar = data_sorted[-1]
-    return last_bar
+    return data_sorted[-1]   # only newest official bar
 
 
 # ---------------------------------------------------------
-# Retrieve last DB row
+# Get last DB row
 # ---------------------------------------------------------
 def db_get_last_spy_row():
     resp = (
@@ -48,7 +45,7 @@ def db_get_last_spy_row():
 
 
 # ---------------------------------------------------------
-# Insert (or update) row using UPSERT
+# UPSERT row
 # ---------------------------------------------------------
 def db_upsert_spy_row(payload):
     supabase.table(TABLE_SPY).upsert(
@@ -60,7 +57,7 @@ def db_upsert_spy_row(payload):
 
 
 # ---------------------------------------------------------
-# Compute indicators
+# Compute indicators (VWAP, EMA12/26, MACD, etc.)
 # ---------------------------------------------------------
 def compute_indicators(new_bar, prev_row):
     close_price = float(new_bar["close"])
@@ -70,10 +67,11 @@ def compute_indicators(new_bar, prev_row):
 
     typical_price = (high + low + close_price) / 3
 
-    # Previous values
+    # Previous stored values
     if prev_row:
         cumulative_pv_prev = float(prev_row["cumulative_pv"])
         cumulative_vol_prev = float(prev_row["cumulative_vol"])
+
         ema12_prev = float(prev_row["ema12"])
         ema26_prev = float(prev_row["ema26"])
         signal_prev = float(prev_row["macd_signal"])
@@ -84,12 +82,12 @@ def compute_indicators(new_bar, prev_row):
         ema26_prev = close_price
         signal_prev = 0
 
-    # VWAP cumulative logic
+    # VWAP cumulative calculations
     cumulative_pv = cumulative_pv_prev + typical_price * volume
     cumulative_vol = cumulative_vol_prev + volume
     vwap = cumulative_pv / cumulative_vol if cumulative_vol > 0 else typical_price
 
-    # EMA smoothing constants
+    # EMA constants
     alpha12 = 2 / 13
     alpha26 = 2 / 27
     alpha9 = 2 / 10
@@ -98,8 +96,8 @@ def compute_indicators(new_bar, prev_row):
     ema26 = ema26_prev + alpha26 * (close_price - ema26_prev)
 
     macd = ema12 - ema26
-    signal = signal_prev + alpha9 * (macd - signal_prev)
-    hist = macd - signal
+    macd_signal = signal_prev + alpha9 * (macd - signal_prev)
+    macd_hist = macd - macd_signal
 
     return {
         "typical_price": typical_price,
@@ -109,13 +107,13 @@ def compute_indicators(new_bar, prev_row):
         "ema12": ema12,
         "ema26": ema26,
         "macd": macd,
-        "macd_signal": signal,
-        "macd_hist": hist,
+        "macd_signal": macd_signal,
+        "macd_hist": macd_hist,
     }
 
 
 # ---------------------------------------------------------
-# Main cycle
+# Main polling cycle
 # ---------------------------------------------------------
 def run_spy_cycle():
     print("[Saifan] Fetching last real SPY 5m bar...")
@@ -127,13 +125,14 @@ def run_spy_cycle():
 
     prev = db_get_last_spy_row()
 
-    # Prevent duplicate insert when last bar already exists
+    # Avoid duplicate insert
     if prev and prev["candle_time"] == new_bar["date"]:
         print("[Saifan] Bar already exists. Skipping.")
         return
 
     indicators = compute_indicators(new_bar, prev)
 
+    # Build payload EXACT to table columns
     payload = {
         "symbol": "SPY",
         "candle_time": new_bar["date"],
