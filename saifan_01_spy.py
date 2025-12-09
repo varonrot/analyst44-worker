@@ -122,6 +122,11 @@ def run_spy_cycle():
         print("[SPY] No row to process.")
         return
 
+         existing = supabase.table(TABLE_NAME).select("id").eq("symbol", "SPY").eq("candle_time", row["candle_time"]).execute()
+    if existing.data:
+        print("[DB] Row already exists. Skipping:", row["candle_time"])
+        return
+
     row = calculate_indicators(row)
 
     db_upsert_spy_row(row)
