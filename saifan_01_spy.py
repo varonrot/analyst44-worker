@@ -1,6 +1,8 @@
+import os
 import requests
 import datetime
 from supabase import create_client, Client
+
 
 # ==============================
 # CONFIG
