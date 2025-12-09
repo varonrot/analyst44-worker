@@ -25,25 +25,20 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def fetch_last_spy_bar():
     try:
-        url = f"{FMP_URL}?apikey={API_KEY}"
-        resp = requests.get(url, timeout=10)
-
-        if resp.status_code != 200:
-            print("[FMP] Error:", resp.text)
-            return None
-
-        data = resp.json()
+        data = fetch_from_fmp()  # הפונקציה שמביאה את הנתונים
         if not data or len(data) == 0:
             print("[FMP] No data returned")
             return None
 
-        # הבארים ב-FMP מגיעים מהחדש לישן – לוקחים את הראשון
         last = data[0]
 
+        # Parse candle time from FMP
         candle_time = datetime.datetime.strptime(last["date"], "%Y-%m-%d %H:%M:%S")
-
-
         candle_time = candle_time.replace(tzinfo=datetime.timezone.utc)
+
+        # ROUND DOWN to closest 5-min candle
+        minute = (candle_time.minute // 5) * 5
+        candle_time = candle_time.replace(minute=minute, second=0, microsecond=0)
 
         return {
             "symbol": "SPY",
@@ -58,6 +53,7 @@ def fetch_last_spy_bar():
     except Exception as e:
         print("[FMP] Failed to fetch last bar:", e)
         return None
+
 
 
 # ==============================
