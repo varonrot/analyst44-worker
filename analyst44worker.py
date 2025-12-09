@@ -51,6 +51,13 @@ def main() -> int:
     ):
         log("Score step finished (may include errors).")
 
+    # Step 4: Save score history
+    run_step(
+        "build_scores_history",
+        ["python3", "build_scores_history.py"],
+    )
+
+
     log("🎯 analyst44 daily pipeline finished")
     return 0
 
