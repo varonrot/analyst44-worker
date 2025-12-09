@@ -1,148 +1,171 @@
 import os
 import requests
-from supabase import create_client
-
-# Environment variables
-FMP_API_KEY = os.getenv("FMP_API_KEY")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-TABLE_SPY = "saifan_intraday_candles_spy_5m"
+from datetime import datetime, timezone
+import supabase
+import math
 
 
-# ---------------------------------------------------------
-# Fetch only last official 5-minute bar (OHLC)
-# ---------------------------------------------------------
-def fetch_last_spy_5m_bar():
+# ---------------------------
+# Supabase client
+# ---------------------------
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+
+supabase_client = supabase.create_client(SUPABASE_URL, SUPABASE_KEY)
+
+TABLE_NAME = "saifan_intraday_candles_spy_5m"
+FMP_API_KEY = os.environ.get("FMP_API_KEY")
+
+
+# ---------------------------
+# Indicator calculations
+# ---------------------------
+def calc_typical_price(o, h, l, c):
+    return (h + l + c) / 3.0
+
+
+def calc_ema(prev_ema, price, period):
+    if prev_ema is None:
+        return price
+    k = 2 / (period + 1)
+    return (price - prev_ema) * k + prev_ema
+
+
+def calc_macd(ema12, ema26):
+    if ema12 is None or ema26 is None:
+        return None
+    return ema12 - ema26
+
+
+def calc_vwap(cumulative_pv, cumulative_vol):
+    if cumulative_vol == 0:
+        return None
+    return cumulative_pv / cumulative_vol
+
+
+# ---------------------------
+# Fetch last 5-minute bar
+# ---------------------------
+def fetch_last_5m_bar():
     url = f"https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY?apikey={FMP_API_KEY}"
-    r = requests.get(url, timeout=10)
-    data = r.json()
-
-    if not isinstance(data, list) or len(data) == 0:
-        print("[FMP] No data returned")
+    try:
+        resp = requests.get(url, timeout=10)
+        data = resp.json()
+        if not isinstance(data, list) or len(data) == 0:
+            print("[Saifan] ERROR: No bar returned from FMP")
+            return None
+        return data[0]  # Only the most recent bar
+    except Exception as e:
+        print(f"[Saifan] ERROR fetching SPY 5m bar: {e}")
         return None
 
-    # FMP returns newest bar first → sort ascending
-    data_sorted = sorted(data, key=lambda x: x["date"])
 
-    return data_sorted[-1]   # only newest official bar
-
-
-# ---------------------------------------------------------
-# Get last DB row
-# ---------------------------------------------------------
-def db_get_last_spy_row():
-    resp = (
-        supabase.table(TABLE_SPY)
+# ---------------------------
+# Read last row from DB
+# ---------------------------
+def get_last_db_row():
+    q = (
+        supabase_client.table(TABLE_NAME)
         .select("*")
         .order("candle_time", desc=True)
         .limit(1)
-        .execute()
     )
-    return resp.data[0] if resp.data else None
+    res = q.execute()
+
+    if res.data and len(res.data) > 0:
+        return res.data[0]
+    return None
 
 
-# ---------------------------------------------------------
-# UPSERT row
-# ---------------------------------------------------------
+# ---------------------------
+# Insert or Update SPY Row
+# ---------------------------
 def db_upsert_spy_row(payload):
-    supabase.table(TABLE_SPY).upsert(
-        payload,
-        on_conflict=["symbol", "candle_time"]
-    ).execute()
+    try:
+        supabase_client.table(TABLE_NAME).upsert(
+            payload,
+            on_conflict=["symbol", "candle_time"]
+        ).execute()
+        print(f"[DB] UPSERT OK — candle_time={payload['candle_time']}")
+    except Exception as e:
+        print(f"[DB ERROR] {e}")
 
-    print("[DB] UPSERT:", payload["candle_time"])
 
+# ---------------------------
+# Build payload & save
+# ---------------------------
+def run_spy_cycle():
+    print("[Saifan] Fetching last real SPY 5m bar...")
 
-# ---------------------------------------------------------
-# Compute indicators (VWAP, EMA12/26, MACD, etc.)
-# ---------------------------------------------------------
-def compute_indicators(new_bar, prev_row):
-    close_price = float(new_bar["close"])
-    high = float(new_bar["high"])
-    low = float(new_bar["low"])
-    volume = float(new_bar["volume"])
+    new_bar = fetch_last_5m_bar()
+    if not new_bar:
+        print("[Saifan] No new bar.")
+        return
 
-    typical_price = (high + low + close_price) / 3
+    # Parse bar
+    o = float(new_bar["open"])
+    h = float(new_bar["high"])
+    l = float(new_bar["low"])
+    c = float(new_bar["close"])
+    v = float(new_bar["volume"])
 
-    # Previous stored values
-    if prev_row:
-        cumulative_pv_prev = float(prev_row["cumulative_pv"])
-        cumulative_vol_prev = float(prev_row["cumulative_vol"])
+    # Convert datetime → UTC ISO format
+    dt = datetime.strptime(new_bar["date"], "%Y-%m-%d %H:%M:%S")
+    dt = dt.replace(tzinfo=timezone.utc)
+    candle_time = dt.isoformat()
 
-        ema12_prev = float(prev_row["ema12"])
-        ema26_prev = float(prev_row["ema26"])
-        signal_prev = float(prev_row["macd_signal"])
+    # Pull last DB row for indicators
+    last = get_last_db_row()
+    if last:
+        prev_cpv = last.get("cumulative_pv", 0) or 0
+        prev_cvol = last.get("cumulative_vol", 0) or 0
+        prev_ema12 = last.get("ema12", None)
+        prev_ema26 = last.get("ema26", None)
+        prev_macd_signal = last.get("macd_signal", None)
     else:
-        cumulative_pv_prev = 0
-        cumulative_vol_prev = 0
-        ema12_prev = close_price
-        ema26_prev = close_price
-        signal_prev = 0
+        prev_cpv = 0
+        prev_cvol = 0
+        prev_ema12 = None
+        prev_ema26 = None
+        prev_macd_signal = None
 
-    # VWAP cumulative calculations
-    cumulative_pv = cumulative_pv_prev + typical_price * volume
-    cumulative_vol = cumulative_vol_prev + volume
-    vwap = cumulative_pv / cumulative_vol if cumulative_vol > 0 else typical_price
+    # Indicators
+    typical_price = calc_typical_price(o, h, l, c)
 
-    # EMA constants
-    alpha12 = 2 / 13
-    alpha26 = 2 / 27
-    alpha9 = 2 / 10
+    cumulative_pv = prev_cpv + (typical_price * v)
+    cumulative_vol = prev_cvol + v
 
-    ema12 = ema12_prev + alpha12 * (close_price - ema12_prev)
-    ema26 = ema26_prev + alpha26 * (close_price - ema26_prev)
+    ema12 = calc_ema(prev_ema12, c, 12)
+    ema26 = calc_ema(prev_ema26, c, 26)
+    macd = calc_macd(ema12, ema26)
 
-    macd = ema12 - ema26
-    macd_signal = signal_prev + alpha9 * (macd - signal_prev)
-    macd_hist = macd - macd_signal
+    if prev_macd_signal is None:
+        macd_signal = macd
+    else:
+        macd_signal = calc_ema(prev_macd_signal, macd, 9)
 
-    return {
+    macd_hist = macd - macd_signal if macd and macd_signal else None
+
+    vwap = calc_vwap(cumulative_pv, cumulative_vol)
+
+    payload = {
+        "symbol": "SPY",
+        "candle_time": candle_time,
+        "open": o,
+        "high": h,
+        "low": l,
+        "close": c,
+        "volume": v,
         "typical_price": typical_price,
         "cumulative_pv": cumulative_pv,
         "cumulative_vol": cumulative_vol,
-        "vwap": vwap,
         "ema12": ema12,
         "ema26": ema26,
         "macd": macd,
         "macd_signal": macd_signal,
         "macd_hist": macd_hist,
-    }
-
-
-# ---------------------------------------------------------
-# Main polling cycle
-# ---------------------------------------------------------
-def run_spy_cycle():
-    print("[Saifan] Fetching last real SPY 5m bar...")
-
-    new_bar = fetch_last_spy_5m_bar()
-    if not new_bar:
-        print("[Saifan] No new bar returned")
-        return
-
-    prev = db_get_last_spy_row()
-
-    # Avoid duplicate insert
-    if prev and prev["candle_time"] == new_bar["date"]:
-        print("[Saifan] Bar already exists. Skipping.")
-        return
-
-    indicators = compute_indicators(new_bar, prev)
-
-    # Build payload EXACT to table columns
-    payload = {
-        "symbol": "SPY",
-        "candle_time": new_bar["date"],
-        "open": float(new_bar["open"]),
-        "high": float(new_bar["high"]),
-        "low": float(new_bar["low"]),
-        "close": float(new_bar["close"]),
-        "volume": float(new_bar["volume"]),
-        **indicators
+        "vwap": vwap,
     }
 
     db_upsert_spy_row(payload)
-    print("[Saifan] SPY cycle completed.")
+    print("[Saifan] SPY bar saved.\n")
