@@ -42,9 +42,12 @@ def fetch_last_spy_bar():
 
         candle_time = datetime.datetime.strptime(last["date"], "%Y-%m-%d %H:%M:%S")
 
+
+        candle_time = candle_time.replace(tzinfo=datetime.timezone.utc)
+
         return {
             "symbol": "SPY",
-            "candle_time": candle_time.isoformat(),
+            "candle_time": candle_time.strftime("%Y-%m-%d %H:%M:%S+00"),
             "open": last["open"],
             "high": last["high"],
             "low": last["low"],
