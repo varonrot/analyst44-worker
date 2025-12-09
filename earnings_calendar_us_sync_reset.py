@@ -11,7 +11,7 @@ NASDAQ_URL = "https://api.nasdaq.com/api/calendar/earnings?date={date}"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") 
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
