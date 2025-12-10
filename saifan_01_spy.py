@@ -61,15 +61,42 @@ def run_cycle():
         print("[NO DATA]")
         return
 
-    # הכנסת כל ברי היום — כולל הבר האחרון!
+    # תאריך של היום לפי ניו יורק
     today_us = datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
-    for bar in reversed(data):
-        if bar["date"].startswith(today_us):
-            upsert(bar_to_row(bar))
+    # חשוב: למיין מהישן לחדש כדי שה־UPSERT יעבוד נכון
+    data_sorted = sorted(data, key=lambda x: x["date"])
 
-    print("=== FULL SYNC COMPLETE ===")
-    print("=== DONE ===")
+    count = 0
+
+    for bar in data_sorted:
+        if bar["date"].startswith(today_us):
+            row = bar_to_row(bar)
+            upsert(row)
+            count += 1
+
+    # --------------------------
+    # LIVE BAR (בר חי עד שיהיה היסטורי)
+    # --------------------------
+
+    now = datetime.datetime.now(ZoneInfo("America/New_York"))
+    rounded = round_to_5(now)
+
+    live_bar = {
+        "symbol": "SPY",
+        "candle_time": rounded.isoformat(),
+        "open": data_sorted[-1]["open"],
+        "high": data_sorted[-1]["high"],
+        "low": data_sorted[-1]["low"],
+        "close": data_sorted[-1]["close"],
+        "volume": data_sorted[-1]["volume"],
+    }
+
+    upsert(live_bar)
+    print("[LIVE] inserted live bar at:", rounded)
+
+    # --------------------------
+    print(f"=== FULL SYNC COMPLETE — {count} rows ===")
 
 
 if __name__ == "__main__":
