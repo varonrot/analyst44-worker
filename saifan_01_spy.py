@@ -11,7 +11,7 @@ FMP_API_KEY = os.getenv("FMP_API_KEY")
 FMP_URL = "https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 TABLE_NAME = "saifan_intraday_candles_spy_5m"
 
