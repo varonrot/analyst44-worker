@@ -1,171 +1,111 @@
 import os
-import requests
 import datetime
+import requests
 from supabase import create_client, Client
 
-
-# ==============================
+# =====================================
 # CONFIG
-# ==============================
+# =====================================
 
-API_KEY = os.getenv("FMP_API_KEY")
+FMP_API_KEY = os.getenv("FMP_API_KEY")
 FMP_URL = "https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 TABLE_NAME = "saifan_intraday_candles_spy_5m"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def fetch_from_fmp():
-    """
-    Fetch full 5-minute SPY candles list from FMP.
-    Returns list of bars.
-    """
+
+# =====================================
+# HELPERS
+# =====================================
+
+def round_to_5min(dt: datetime.datetime) -> datetime.datetime:
+    """Round timestamp down to the nearest 5-minute block."""
+    minute = (dt.minute // 5) * 5
+    return dt.replace(minute=minute, second=0, microsecond=0)
+
+
+def fetch_fmp_5m() -> list | None:
+    """Fetch 5-minute SPY bars from FMP."""
+    url = f"{FMP_URL}?apikey={FMP_API_KEY}"
     try:
-        url = f"{FMP_URL}?apikey={API_KEY}"
-        resp = requests.get(url)
-
-        if resp.status_code != 200:
-            print("[FMP] Bad status code:", resp.status_code)
-            return None
-
+        resp = requests.get(url, timeout=10)
         data = resp.json()
 
-        if not data:
-            print("[FMP] Empty response")
+        if isinstance(data, dict):
+            print("[FMP ERROR]:", data)
             return None
 
-        return data  # רשימת כל הבר-ים מהחדש לישן
+        if not isinstance(data, list) or not data:
+            print("[FMP] No data returned.")
+            return None
+
+        return data
 
     except Exception as e:
-        print("[FMP] Error fetching FMP data:", e)
+        print("[FMP] Request error:", e)
         return None
 
 
-def fetch_last_spy_bar():
+def build_row_from_fmp_bar(bar: dict) -> dict:
+    """Convert FMP bar into a DB row structure."""
+    dt = datetime.datetime.strptime(bar["date"], "%Y-%m-%d %H:%M:%S")
+    dt = dt.replace(tzinfo=datetime.timezone.utc)
+    dt = round_to_5min(dt)
+
+    return {
+        "symbol": "SPY",
+        "candle_time": dt.isoformat(),
+        "open": bar["open"],
+        "high": bar["high"],
+        "low": bar["low"],
+        "close": bar["close"],
+        "volume": bar["volume"],
+    }
+
+
+def upsert_bar(row: dict) -> None:
+    """Insert or update bar into Supabase."""
     try:
-        data = fetch_from_fmp()  # הפונקציה שמביאה את הנתונים
-        if not data or len(data) == 0:
-            print("[FMP] No data returned")
-            return None
-
-        last = data[0]
-
-        # Parse candle time from FMP
-        candle_time = datetime.datetime.strptime(last["date"], "%Y-%m-%d %H:%M:%S")
-        candle_time = candle_time.replace(tzinfo=datetime.timezone.utc)
-
-        # ROUND DOWN to closest 5-min candle
-        minute = (candle_time.minute // 5) * 5
-        candle_time = candle_time.replace(minute=minute, second=0, microsecond=0)
-
-        return {
-            "symbol": "SPY",
-            "candle_time": candle_time.strftime("%Y-%m-%d %H:%M:%S+00"),
-            "open": last["open"],
-            "high": last["high"],
-            "low": last["low"],
-            "close": last["close"],
-            "volume": last["volume"]
-        }
-
+        supabase.table(TABLE_NAME).upsert(row).execute()
+        print(
+            "[DB UPSERT]",
+            row["candle_time"],
+            "| close:", row["close"],
+            "| volume:", row["volume"]
+        )
     except Exception as e:
-        print("[FMP] Failed to fetch last bar:", e)
-        return None
+        print("[DB ERROR]:", e)
 
 
-
-# ==============================
-# INDICATORS
-# ==============================
-
-def calculate_indicators(row):
-    """
-    חישוב EMA12/26 + MACD + VWAP לשורה בודדת.
-    VWAP מחושב על typ_price * volume.
-    """
-    close_price = row["close"]
-    volume = row["volume"]
-
-    typical_price = (row["high"] + row["low"] + row["close"]) / 3
-    cumulative_pv = typical_price * volume
-    cumulative_vol = volume
-    vwap = cumulative_pv / cumulative_vol if cumulative_vol != 0 else None
-
-    # EMA12 & EMA26 (בר ראשון = מחיר סגירה)
-    ema12 = close_price
-    ema26 = close_price
-
-    macd = ema12 - ema26
-    macd_signal = macd  # בבר ראשון = MACD
-    macd_hist = macd - macd_signal
-
-    row["ema12"] = ema12
-    row["ema26"] = ema26
-    row["macd"] = macd
-    row["macd_signal"] = macd_signal
-    row["macd_hist"] = macd_hist
-
-    row["typical_price"] = typical_price
-    row["cumulative_pv"] = cumulative_pv
-    row["cumulative_vol"] = cumulative_vol
-    row["vwap"] = vwap
-
-    return row
-
-
-# ==============================
-# UPSERT TO DB
-# ==============================
-
-def db_upsert_spy_row(payload: dict):
-    try:
-        supabase.table(TABLE_NAME).upsert(payload, ignore_duplicates=False).execute()
-        print("[DB] UPSERT OK:", payload["candle_time"])
-        return True
-    except Exception as e:
-        print("[DB] UPSERT FAILED:", e)
-        return False
-
-
-# ==============================
+# =====================================
 # MAIN CYCLE
-# ==============================
+# =====================================
 
 def run_spy_cycle():
-    print("=== [SPY] Fetching latest 5m bar ===")
+    """Main worker cycle: fetch → build → upsert (live + historical correction)."""
 
-    row = fetch_last_spy_bar()
-    if not row:
-        print("[SPY] No row to process.")
+    print("=== [SPY] 5m LIVE CYCLE START ===")
+
+    data = fetch_fmp_5m()
+    if not data:
+        print("[SPY] No data from FMP, aborting cycle.")
         return
 
-    # Check if row already exists (avoid duplicates)
-    existing = (
-        supabase.table(TABLE_NAME)
-        .select("id")
-        .eq("symbol", "SPY")
-        .eq("candle_time", row["candle_time"])
-        .execute()
-    )
+    latest_bar = data[0]  # newest bar from FMP
+    row = build_row_from_fmp_bar(latest_bar)
 
-    if existing.data:
-        print("[DB] Row already exists. Skipping:", row["candle_time"])
-        return
+    upsert_bar(row)
 
-    # Indicators
-    row = calculate_indicators(row)
-
-    # Upsert
-    db_upsert_spy_row(row)
+    print("=== [SPY] 5m LIVE CYCLE END ===")
 
 
-
-# ==============================
-# TEST (LOCAL)
-# ==============================
+# =====================================
+# LOCAL TEST
+# =====================================
 
 if __name__ == "__main__":
     run_spy_cycle()
