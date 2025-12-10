@@ -18,10 +18,31 @@ TABLE_NAME = "saifan_intraday_candles_spy_5m"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def fetch_from_fmp():
+    """
+    Fetch full 5-minute SPY candles list from FMP.
+    Returns list of bars.
+    """
+    try:
+        url = f"{FMP_URL}?apikey={API_KEY}"
+        resp = requests.get(url)
 
-# ==============================
-# FETCH LAST 5m BAR
-# ==============================
+        if resp.status_code != 200:
+            print("[FMP] Bad status code:", resp.status_code)
+            return None
+
+        data = resp.json()
+
+        if not data:
+            print("[FMP] Empty response")
+            return None
+
+        return data  # רשימת כל הבר-ים מהחדש לישן
+
+    except Exception as e:
+        print("[FMP] Error fetching FMP data:", e)
+        return None
+
 
 def fetch_last_spy_bar():
     try:
