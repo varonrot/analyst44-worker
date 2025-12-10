@@ -48,7 +48,7 @@ def bar_to_row(bar):
 
 
 def upsert(row):
-    supabase.table(TABLE_NAME).upsert(row).execute()
+    supabase.table(TABLE_NAME).upsert(row, on_conflict="symbol,candle_time").execute()
     print("[UPSERT]", row["candle_time"], row["close"], row["volume"])
 
 
