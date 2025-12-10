@@ -30,10 +30,12 @@ def fetch_fmp():
     return data
 
 
-def bar_to_row(bar):
+def bar_to_row(bar, round_5=True):
     dt = datetime.datetime.strptime(bar["date"], "%Y-%m-%d %H:%M:%S")
     dt = dt.replace(tzinfo=datetime.timezone.utc)
-    dt = round_to_5(dt)
+
+    if round_5:
+        dt = round_to_5(dt)
 
     return {
         "symbol": "SPY",
