@@ -28,14 +28,6 @@ def run_step(name: str, cmd: list[str]) -> bool:
 def main() -> int:
     log("🚀 analyst44worker.py started")
 
-    # Step 1: Update earnings calendar table
-    if not run_step(
-        "update_earnings_calendar",
-        ["python3", "earnings_calendar_us_sync_reset.py"],
-    ):
-        log("Stopping pipeline because earnings calendar update failed.")
-        return 1
-
     # Step 2: Fetch financial statements
     if not run_step(
         "financial_statements",
@@ -57,7 +49,14 @@ def main() -> int:
         ["python3", "build_scores_history.py"],
     )
 
-
+    # Step 1: Update earnings calendar table
+    if not run_step(
+        "update_earnings_calendar",
+        ["python3", "earnings_calendar_us_sync_reset.py"],
+    ):
+        log("Stopping pipeline because earnings calendar update failed.")
+        return 1
+    
     log("🎯 analyst44 daily pipeline finished")
     return 0
 
