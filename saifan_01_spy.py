@@ -85,15 +85,16 @@ def run_cycle():
     live_bar = {
         "symbol": "SPY",
         "candle_time": rounded.isoformat(),
-        "open": data_sorted[-1]["open"],
-        "high": data_sorted[-1]["high"],
-        "low": data_sorted[-1]["low"],
-        "close": data_sorted[-1]["close"],
-        "volume": data_sorted[-1]["volume"],
+        "open": None,
+        "high": None,
+        "low": None,
+        "close": None,
+        "volume": None,
     }
 
     upsert(live_bar)
-    print("[LIVE] inserted live bar at:", rounded)
+    print("[LIVE] inserted empty live bar at:", rounded)
+
 
     # --------------------------
     print(f"=== FULL SYNC COMPLETE — {count} rows ===")
