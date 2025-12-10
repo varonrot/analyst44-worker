@@ -1,60 +1,40 @@
 import os
 import datetime
 import requests
+from zoneinfo import ZoneInfo
 from supabase import create_client, Client
+from dotenv import load_dotenv
 
-# =====================================
-# CONFIG
-# =====================================
+load_dotenv()
 
 FMP_API_KEY = os.getenv("FMP_API_KEY")
-FMP_URL = "https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY"
-
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
+FMP_URL = "https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY"
 TABLE_NAME = "saifan_intraday_candles_spy_5m"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-# =====================================
-# HELPERS
-# =====================================
-
-def round_to_5min(dt: datetime.datetime) -> datetime.datetime:
-    """Round timestamp down to the nearest 5-minute block."""
-    minute = (dt.minute // 5) * 5
-    return dt.replace(minute=minute, second=0, microsecond=0)
+def round_to_5(dt):
+    return dt.replace(minute=(dt.minute // 5) * 5, second=0, microsecond=0)
 
 
-def fetch_fmp_5m() -> list | None:
-    """Fetch 5-minute SPY bars from FMP."""
+def fetch_fmp():
     url = f"{FMP_URL}?apikey={FMP_API_KEY}"
-    try:
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
-
-        if isinstance(data, dict):
-            print("[FMP ERROR]:", data)
-            return None
-
-        if not isinstance(data, list) or not data:
-            print("[FMP] No data returned.")
-            return None
-
-        return data
-
-    except Exception as e:
-        print("[FMP] Request error:", e)
+    r = requests.get(url)
+    data = r.json()
+    if not isinstance(data, list):
+        print("[FMP ERROR]", data)
         return None
+    return data
 
 
-def build_row_from_fmp_bar(bar: dict) -> dict:
-    """Convert FMP bar into a DB row structure."""
+def bar_to_row(bar):
     dt = datetime.datetime.strptime(bar["date"], "%Y-%m-%d %H:%M:%S")
     dt = dt.replace(tzinfo=datetime.timezone.utc)
-    dt = round_to_5min(dt)
+    dt = round_to_5(dt)
 
     return {
         "symbol": "SPY",
@@ -63,49 +43,41 @@ def build_row_from_fmp_bar(bar: dict) -> dict:
         "high": bar["high"],
         "low": bar["low"],
         "close": bar["close"],
-        "volume": bar["volume"],
+        "volume": bar["volume"]
     }
 
 
-def upsert_bar(row: dict) -> None:
-    """Insert or update bar into Supabase."""
-    try:
-        supabase.table(TABLE_NAME).upsert(row).execute()
-        print(
-            "[DB UPSERT]",
-            row["candle_time"],
-            "| close:", row["close"],
-            "| volume:", row["volume"]
-        )
-    except Exception as e:
-        print("[DB ERROR]:", e)
+def upsert(row):
+    supabase.table(TABLE_NAME).upsert(row).execute()
+    print("[UPSERT]", row["candle_time"], row["close"], row["volume"])
 
 
-# =====================================
-# MAIN CYCLE
-# =====================================
+def run_cycle():
+    print("\n=== SPY WORKER START ===")
 
-def run_spy_cycle():
-    """Main worker cycle: fetch → build → upsert (live + historical correction)."""
-
-    print("=== [SPY] 5m LIVE CYCLE START ===")
-
-    data = fetch_fmp_5m()
+    data = fetch_fmp()
     if not data:
-        print("[SPY] No data from FMP, aborting cycle.")
+        print("[NO DATA]")
         return
 
-    latest_bar = data[0]  # newest bar from FMP
-    row = build_row_from_fmp_bar(latest_bar)
+    # 1️⃣ עדכון כל ההיסטוריה של היום
+    today_us = datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
-    upsert_bar(row)
+    for bar in reversed(data):  # מהישן לחדש
+        if bar["date"].startswith(today_us):
+            row = bar_to_row(bar)
+            upsert(row)
 
-    print("=== [SPY] 5m LIVE CYCLE END ===")
+    print("=== HISTORY SYNC COMPLETE ===")
 
+    # 2️⃣ הוספת בר לייב (בר רגעי)
+    live_bar = data[0]  # טרי ביותר
+    live_row = bar_to_row(live_bar)
+    upsert(live_row)
 
-# =====================================
-# LOCAL TEST
-# =====================================
+    print("=== LIVE SYNC COMPLETE ===")
+    print("=== DONE ===")
+
 
 if __name__ == "__main__":
-    run_spy_cycle()
+    run_cycle()
