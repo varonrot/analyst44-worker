@@ -9,7 +9,7 @@ from supabase import create_client, Client
 # -------------------------------------------
 API_KEY = os.getenv("FMP_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 TABLE = "saifan_intraday_candles_spy_5m"
 SYMBOL = "SPY"
