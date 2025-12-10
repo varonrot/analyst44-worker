@@ -30,12 +30,9 @@ def fetch_fmp():
     return data
 
 
-def bar_to_row(bar, round_5=True):
+def bar_to_row(bar):
     dt = datetime.datetime.strptime(bar["date"], "%Y-%m-%d %H:%M:%S")
     dt = dt.replace(tzinfo=datetime.timezone.utc)
-
-    if round_5:
-        dt = round_to_5(dt)
 
     return {
         "symbol": "SPY",
@@ -64,26 +61,14 @@ def run_cycle():
         print("[NO DATA]")
         return
 
-    # 1️⃣ היסטוריה מלאה — מהישן לחדש
+    # הכנסת כל ברי היום — כולל הבר האחרון!
     today_us = datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
     for bar in reversed(data):
         if bar["date"].startswith(today_us):
             upsert(bar_to_row(bar))
 
-    print("=== HISTORY SYNC COMPLETE ===")
-
-    # LIVE BAR – force new candle
-    now = datetime.datetime.now(datetime.timezone.utc)
-    rounded = round_to_5(now)
-
-    live_bar = data[0]
-    row = bar_to_row(live_bar, round_5=False)
-    row["candle_time"] = rounded.isoformat()
-
-    upsert(row)
-
-    print("=== LIVE SYNC COMPLETE ===")
+    print("=== FULL SYNC COMPLETE ===")
     print("=== DONE ===")
 
 
