@@ -30,9 +30,12 @@ def fetch_fmp():
     return data
 
 
-def bar_to_row(bar):
+def bar_to_row(bar, round_5=True):
     dt = datetime.datetime.strptime(bar["date"], "%Y-%m-%d %H:%M:%S")
     dt = dt.replace(tzinfo=datetime.timezone.utc)
+
+    if round_5:
+        dt = round_to_5(dt)
 
     return {
         "symbol": "SPY",
@@ -61,43 +64,27 @@ def run_cycle():
         print("[NO DATA]")
         return
 
-    # תאריך של היום לפי ניו יורק
+    # 1️⃣ היסטוריה מלאה — מהישן לחדש
     today_us = datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
-    # חשוב: למיין מהישן לחדש כדי שה־UPSERT יעבוד נכון
-    data_sorted = sorted(data, key=lambda x: x["date"])
-
-    count = 0
-
-    for bar in data_sorted:
+    for bar in reversed(data):
         if bar["date"].startswith(today_us):
-            row = bar_to_row(bar)
-            upsert(row)
-            count += 1
+            upsert(bar_to_row(bar))
 
-    # --------------------------
-    # LIVE BAR (בר חי עד שיהיה היסטורי)
-    # --------------------------
+    print("=== HISTORY SYNC COMPLETE ===")
 
-    now = datetime.datetime.now(ZoneInfo("America/New_York"))
+    # LIVE BAR – force new candle
+    now = datetime.datetime.now(datetime.timezone.utc)
     rounded = round_to_5(now)
 
-    live_bar = {
-        "symbol": "SPY",
-        "candle_time": rounded.isoformat(),
-        "open": None,
-        "high": None,
-        "low": None,
-        "close": None,
-        "volume": None,
-    }
+    live_bar = data[0]
+    row = bar_to_row(live_bar, round_5=False)
+    row["candle_time"] = rounded.isoformat()
 
-    upsert(live_bar)
-    print("[LIVE] inserted empty live bar at:", rounded)
+    upsert(row)
 
-
-    # --------------------------
-    print(f"=== FULL SYNC COMPLETE — {count} rows ===")
+    print("=== LIVE SYNC COMPLETE ===")
+    print("=== DONE ===")
 
 
 if __name__ == "__main__":
