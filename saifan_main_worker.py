@@ -7,7 +7,7 @@
 
 import datetime
 import pytz
-from saifan_01_spy import run_spy_cycle
+from saifan_01_spy import run_cycle
 
 
 # ------------------------------------------------------
@@ -49,7 +49,7 @@ def run_saifan():
         return
 
     print("[Saifan] Market open – running SPY module...")
-    run_spy_cycle()
+    run_cycle()
 
     print("=== Saifan cycle completed ===")
 
