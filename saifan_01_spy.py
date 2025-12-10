@@ -11,8 +11,8 @@ FMP_API_KEY = os.getenv("FMP_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-FMP_URL = "https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY"
 TABLE_NAME = "saifan_intraday_candles_spy_5m"
+FMP_URL = "https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -22,8 +22,7 @@ def round_to_5(dt):
 
 
 def fetch_fmp():
-    url = f"{FMP_URL}?apikey={FMP_API_KEY}"
-    r = requests.get(url)
+    r = requests.get(f"{FMP_URL}?apikey={FMP_API_KEY}")
     data = r.json()
     if not isinstance(data, list):
         print("[FMP ERROR]", data)
@@ -48,7 +47,10 @@ def bar_to_row(bar):
 
 
 def upsert(row):
-    supabase.table(TABLE_NAME).upsert(row, on_conflict="unique_symbol_candle_time").execute()
+    supabase.table(TABLE_NAME).upsert(
+        row,
+        on_conflict="symbol,candle_time"
+    ).execute()
     print("[UPSERT]", row["candle_time"], row["close"], row["volume"])
 
 
@@ -60,20 +62,18 @@ def run_cycle():
         print("[NO DATA]")
         return
 
-    # 1️⃣ עדכון כל ההיסטוריה של היום
+    # 1️⃣ היסטוריה מלאה — מהישן לחדש
     today_us = datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
-    for bar in reversed(data):  # מהישן לחדש
+    for bar in reversed(data):
         if bar["date"].startswith(today_us):
-            row = bar_to_row(bar)
-            upsert(row)
+            upsert(bar_to_row(bar))
 
     print("=== HISTORY SYNC COMPLETE ===")
 
-    # 2️⃣ הוספת בר לייב (בר רגעי)
-    live_bar = data[0]  # טרי ביותר
-    live_row = bar_to_row(live_bar)
-    upsert(live_row)
+    # 2️⃣ LIVE — תמיד האחרון
+    live_bar = data[0]
+    upsert(bar_to_row(live_bar))
 
     print("=== LIVE SYNC COMPLETE ===")
     print("=== DONE ===")
