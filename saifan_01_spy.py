@@ -73,9 +73,15 @@ def run_cycle():
 
     print("=== HISTORY SYNC COMPLETE ===")
 
-    # 2️⃣ LIVE — תמיד האחרון
+    # LIVE BAR – force new candle
+    now = datetime.datetime.now(datetime.timezone.utc)
+    rounded = round_to_5(now)
+
     live_bar = data[0]
-    upsert(bar_to_row(live_bar))
+    row = bar_to_row(live_bar, round_5=False)
+    row["candle_time"] = rounded.isoformat()
+
+    upsert(row)
 
     print("=== LIVE SYNC COMPLETE ===")
     print("=== DONE ===")
