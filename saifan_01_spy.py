@@ -1,71 +1,94 @@
 import os
-import datetime
 import requests
+import datetime
 from zoneinfo import ZoneInfo
 from supabase import create_client, Client
-from dotenv import load_dotenv
 
-load_dotenv()
-
-FMP_API_KEY = os.getenv("FMP_API_KEY")
+# -------------------------------------------
+# CONFIG
+# -------------------------------------------
+API_KEY = os.getenv("FMP_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-TABLE_NAME = "saifan_intraday_candles_spy_5m"
+TABLE = "saifan_intraday_candles_spy_5m"
+SYMBOL = "SPY"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-HIST_URL = f"https://financialmodelingprep.com/api/v3/historical-chart/5min/SPY?apikey={FMP_API_KEY}"
-QUOTE_URL = f"https://financialmodelingprep.com/api/v3/quote/SPY?apikey={FMP_API_KEY}"
+# -------------------------------------------
+# HELPERS
+# -------------------------------------------
 
-# כדי למנוע יצירת LIVE כפול
-last_live_candle_time = None
-
-
-# -------------------------------
-# Utility: עיגול זמן ל-5 דקות
-# -------------------------------
-def round_to_5(dt):
-    return dt.replace(minute=(dt.minute // 5) * 5, second=0, microsecond=0)
+def round_to_5(dt: datetime.datetime):
+    """מעגל זמן ל-5 דקות"""
+    minute = (dt.minute // 5) * 5
+    return dt.replace(minute=minute, second=0, microsecond=0)
 
 
-# -------------------------------
-# FMP – משיכת היסטוריה רשמית
-# -------------------------------
-def fetch_history():
-    r = requests.get(HIST_URL)
-    try:
-        data = r.json()
-        if isinstance(data, list):
-            return data
+def upsert(row):
+    """UPSERT בסיסי לפי candle_time"""
+    supabase.table(TABLE).upsert(
+        row,
+        on_conflict="candle_time"
+    ).execute()
+
+    print("[UPSERT]", row["candle_time"], row["close"], row["volume"])
+
+
+# -------------------------------------------
+# LIVE BAR
+# -------------------------------------------
+
+def fetch_live_quote():
+    """שליפת ציטוט חי"""
+    url = f"https://financialmodelingprep.com/api/v3/quote/{SYMBOL}?apikey={API_KEY}"
+    r = requests.get(url)
+    data = r.json()
+    if not data:
         return None
-    except:
+    return data[0]
+
+
+def build_live_bar():
+    """בניית BAR לייב מ-QUOTE"""
+    q = fetch_live_quote()
+    if not q:
+        print("[LIVE] No quote data")
         return None
 
+    now_ny = datetime.datetime.now(ZoneInfo("America/New_York"))
+    rounded = round_to_5(now_ny)
 
-# -------------------------------
-# FMP – משיכת QUOTE (מחיר אחרון)
-# -------------------------------
-def fetch_quote():
-    r = requests.get(QUOTE_URL)
-    try:
-        data = r.json()
-        if isinstance(data, list) and len(data) > 0:
-            return data[0]
-        return None
-    except:
-        return None
+    row = {
+        "candle_time": rounded.isoformat(),
+        "open": q["previousClose"],
+        "high": q["price"],
+        "low": q["price"],
+        "close": q["price"],
+        "volume": q["volume"]
+    }
+
+    print("[LIVE BAR]", row)
+    return row
 
 
-# -------------------------------
-# המרת בר היסטורי לשורה
-# -------------------------------
-def history_to_row(bar):
-    dt = datetime.datetime.strptime(bar["date"], "%Y-%m-%d %H:%M:%S")
-    dt = dt.replace(tzinfo=datetime.timezone.utc)
+# -------------------------------------------
+# HISTORICAL DATA (OFFICIAL)
+# -------------------------------------------
 
+def fetch_hist_5m():
+    """היסטוריה רשמית 5 דקות"""
+    url = f"https://financialmodelingprep.com/api/v3/historical-chart/5min/{SYMBOL}?apikey={API_KEY}"
+    r = requests.get(url)
+    data = r.json()
+    return data
+
+
+def build_hist_bar(bar):
+    """המרת בר מהיסטוריה לטבלה שלנו"""
+    dt = datetime.datetime.fromisoformat(bar["date"].replace("Z", "+00:00"))
     return {
-        "symbol": "SPY",
         "candle_time": dt.isoformat(),
         "open": bar["open"],
         "high": bar["high"],
@@ -75,84 +98,42 @@ def history_to_row(bar):
     }
 
 
-# -------------------------------
-# הכנסה למסד הנתונים (UPSERT)
-# -------------------------------
-def upsert(row):
-    supabase.table(TABLE_NAME).upsert(
-        row,
-        on_conflict="symbol,candle_time"
-    ).execute()
-    print("[UPSERT]", row["candle_time"], row["close"], row["volume"])
+# -------------------------------------------
+# MAIN LOGIC
+# -------------------------------------------
 
-
-# -------------------------------
-# יצירת בר LIVE חדש כל 5 דקות
-# -------------------------------
-def build_and_insert_live_bar():
-    global last_live_candle_time
-
-    now = datetime.datetime.now(ZoneInfo("America/New_York"))
-    rounded = round_to_5(now)
-
-    # למנוע יצירת אותו LIVE פעמיים
-    if last_live_candle_time == rounded:
-        return
-
-    last_live_candle_time = rounded
-
-    quote = fetch_quote()
-    if not quote:
-        print("[LIVE] No quote available")
-        return
-
-    price = quote.get("price", None)
-
-    # בונים בר חי בסיסי
-    live_row = {
-        "symbol": "SPY",
-        "candle_time": rounded.replace(tzinfo=datetime.timezone.utc).isoformat(),
-        "open": price,
-        "high": price,
-        "low": price,
-        "close": price,
-        "volume": quote.get("volume", 0)
-    }
-
-    upsert(live_row)
-    print("[LIVE] Inserted LIVE bar at:", rounded)
-
-
-# -------------------------------
-# ריצה מלאה
-# -------------------------------
 def run_cycle():
-    print("\n=== SPY WORKER START ===")
+    print("=== SPY WORKER START ===")
 
-    # 1️⃣ היסטוריה רשמית
-    history = fetch_history()
-    if history:
-        today_us = datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    # ----------- 1) LIVE BAR -----------
+    live = build_live_bar()
+    if live:
+        upsert(live)
 
-        # חשוב: ממיינים מהישן לחדש
-        data_sorted = sorted(history, key=lambda x: x["date"])
+    # ----------- 2) HISTORICAL -----------
+    hist = fetch_hist_5m()
+    if not hist:
+        print("[HIST] no data")
+        return
 
-        count = 0
-        for bar in data_sorted:
-            if bar["date"].startswith(today_us):
-                row = history_to_row(bar)
-                upsert(row)
-                count += 1
+    today_ny = datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
-        print(f"=== HISTORY SYNC COMPLETE — {count} rows ===")
-    else:
-        print("[HISTORY] No history returned.")
+    # historical מגיע הפוך → נמיין לפי זמן
+    hist_sorted = sorted(hist, key=lambda x: x["date"])
 
-    # 2️⃣ בניית בר LIVE תמידי
-    build_and_insert_live_bar()
+    count = 0
+    for b in hist_sorted:
+        if b["date"].startswith(today_ny):
+            row = build_hist_bar(b)
+            upsert(row)
+            count += 1
 
-    print("=== DONE ===")
+    print(f"=== HIST COMPLETE — {count} bars ===")
 
+
+# -------------------------------------------
+# ENTRY
+# -------------------------------------------
 
 if __name__ == "__main__":
     run_cycle()
