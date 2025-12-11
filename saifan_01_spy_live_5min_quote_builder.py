@@ -1,6 +1,6 @@
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from supabase import create_client, Client
 
@@ -71,7 +71,7 @@ def run_cycle():
 
     row = {
         "symbol": "SPY",
-        "candle_time": candle_time,
+        "candle_time": candle_time.astimezone(timezone.utc).isoformat(),
         "open": quote["open"],
         "high": quote["high"],
         "low": quote["low"],
