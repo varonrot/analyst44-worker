@@ -34,6 +34,9 @@ def run_saifan_loop():
 
     while True:
         try:
+            # 👇 הלוג החדש — יופיע כל 20 שניות
+            print("[Saifan] Heartbeat – loop is alive...")
+
             if is_us_market_open():
                 print("[Saifan] Market OPEN – updating SPY...")
                 run_cycle()
@@ -43,7 +46,8 @@ def run_saifan_loop():
         except Exception as e:
             print("[Saifan] ERROR:", e)
 
-        time.sleep(20)  # <-- כל כמה שניות תרצה
+        time.sleep(20)
+
 
 
 # ------------------------------------------------------
