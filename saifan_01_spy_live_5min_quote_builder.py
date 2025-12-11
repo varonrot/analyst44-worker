@@ -10,7 +10,7 @@ from supabase import create_client, Client
 
 FMP_API_KEY = os.getenv("FMP_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")     
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 if not FMP_API_KEY or not SUPABASE_URL or not SUPABASE_KEY:
     raise Exception("Missing environment variables")
@@ -70,14 +70,15 @@ def run_cycle():
     candle_time = rounded_5min_time()
 
     row = {
-        "candle_time": candle_time.isoformat(),
-        "open": quote["open"],
-        "high": quote["high"],
-        "low": quote["low"],
-        "close": quote["close"],
-        "volume": quote["volume"]
+        "symbol": "SPY",
+        "candle_time": candle_time,
+        "open": q["open"],
+        "high": q["high"],
+        "low": q["low"],
+        "close": q["close"],
+        "volume": q["volume"]
     }
-
+    
     print("UPSERT ROW:", row)
 
     supabase.table("saifan_intraday_candles_spy_5m").upsert(row).execute()
