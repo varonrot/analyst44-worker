@@ -71,7 +71,8 @@ def run_cycle():
 
     row = {
         "symbol": "SPY",
-        "candle_time": candle_time.astimezone(timezone.utc).isoformat(),
+        # Save in NY time zone exactly as the exchange uses
+        "candle_time": candle_time.isoformat(),
         "open": quote["open"],
         "high": quote["high"],
         "low": quote["low"],
