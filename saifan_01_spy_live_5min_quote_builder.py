@@ -81,7 +81,10 @@ def run_cycle():
 
     print("UPSERT ROW:", row)
 
-    supabase.table("saifan_intraday_candles_spy_5m").upsert(row).execute()
+    supabase.table("saifan_intraday_candles_spy_5m").upsert(
+        row,
+        on_conflict=["symbol", "candle_time"]
+    ).execute()
 
     print("Done ✓")
 
