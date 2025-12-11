@@ -34,7 +34,7 @@ def run_saifan_loop():
     print("=== Saifan Real-Time Worker Started ===")
 
     # last official history run (epoch seconds)
-    last_history_run: float = 0.0
+    last_history_run = 0  # timestamp
 
     while True:
         try:
@@ -42,24 +42,23 @@ def run_saifan_loop():
 
             if is_us_market_open():
 
-                # 01 – LIVE quote update (every loop, ~20s)
+                # 01 – LIVE update
                 print("[Saifan] Market OPEN - updating SPY (LIVE)...")
                 run_cycle()
 
-                # 02 – OFFICIAL history update (every 5 minutes)
+                # 02 – HISTORY update every 5 minutes (300 sec)
                 now = time.time()
-                if last_history_run == 0.0 or (now - last_history_run) >= 300:
+                if now - last_history_run >= 300:
                     print("[Saifan] Running OFFICIAL history update...")
                     run_history_update()
                     last_history_run = now
 
             else:
-                print("[Saifan] Market CLOSED - sleeping...")
+                print("[Saifan] Market CLOSED – sleeping...")
 
         except Exception as e:
             print("[Saifan] ERROR:", e)
 
-        # wait 20 seconds between loops
         time.sleep(20)
 
 
