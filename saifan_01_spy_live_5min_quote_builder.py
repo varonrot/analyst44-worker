@@ -10,7 +10,7 @@ from supabase import create_client, Client
 
 FMP_API_KEY = os.getenv("FMP_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")     # <- מותאם למה שיש אצלך
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")     
 
 if not FMP_API_KEY or not SUPABASE_URL or not SUPABASE_KEY:
     raise Exception("Missing environment variables")
