@@ -58,8 +58,8 @@ def run_history_update():
             continue
 
         # Do NOT overwrite live bar
-        if bar_time >= rounded:
-            print("Skipping LIVE bar:", bar_time)
+        if bar_time == rounded:
+            print("Skipping the current LIVE bar:", bar_time)
             continue
 
         row = {
