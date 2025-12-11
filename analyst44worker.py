@@ -28,7 +28,7 @@ def run_step(name: str, cmd: list[str]) -> bool:
 def main() -> int:
     log("🚀 analyst44worker.py started")
 
-    # Step 2: Fetch financial statements
+    # Step 1: Fetch financial statements
     if not run_step(
         "financial_statements",
         ["python3", "analyst_financial_statements_worker.py"],
@@ -36,27 +36,33 @@ def main() -> int:
         log("Stopping pipeline because financial statements step failed.")
         return 1
 
-    # Step 3: Run financial scoring
+    # Step 2: Run financial scoring
     if not run_step(
         "financial_scores",
         ["python3", "analyst_financial_scores_worker.py"],
     ):
         log("Score step finished (may include errors).")
 
-    # Step 4: Save score history
+    # Step 3: Save score history
     run_step(
         "build_scores_history",
         ["python3", "build_scores_history.py"],
     )
 
-    # Step 1: Update earnings calendar table
+    # Step 3.5: Cleanup earnings_calendar_us table before rebuilding
+    run_step(
+        "cleanup_earnings_calendar",
+        ["python3", "cleanup_earnings_calendar.py"],
+    )
+
+    # Step 4: Update earnings calendar table
     if not run_step(
         "update_earnings_calendar",
         ["python3", "earnings_calendar_us_sync_reset.py"],
     ):
         log("Stopping pipeline because earnings calendar update failed.")
         return 1
-    
+
     log("🎯 analyst44 daily pipeline finished")
     return 0
 
