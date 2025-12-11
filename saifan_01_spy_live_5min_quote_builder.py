@@ -72,13 +72,13 @@ def run_cycle():
     row = {
         "symbol": "SPY",
         "candle_time": candle_time,
-        "open": q["open"],
-        "high": q["high"],
-        "low": q["low"],
-        "close": q["close"],
-        "volume": q["volume"]
+        "open": quote["open"],
+        "high": quote["high"],
+        "low": quote["low"],
+        "close": quote["close"],
+        "volume": quote["volume"]
     }
-    
+
     print("UPSERT ROW:", row)
 
     supabase.table("saifan_intraday_candles_spy_5m").upsert(row).execute()
