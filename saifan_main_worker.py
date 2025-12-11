@@ -1,16 +1,11 @@
 # ======================================================
-# saifan_main_worker.py
-#
-# Saifan Main Worker – Orchestrator
-# Stage 1: Runs the SPY 5-minute LIVE quote builder
-# Additional stages (02, 03...) will be triggered here later.
-#
-# This worker is executed every 5 minutes on Render.
+# Saifan Main Worker – Real-Time Background Loop
+# Runs continuously every 20 seconds while market is open
 # ======================================================
 
+import time
 import datetime
 from saifan_01_spy_live_5min_quote_builder import run_cycle
-
 
 # ------------------------------------------------------
 # Check if US markets are open
@@ -41,23 +36,27 @@ def is_us_market_open():
 
 
 # ------------------------------------------------------
-# Main Orchestrator (Stage 1 only)
+# Continuous Loop – real-time engine
 # ------------------------------------------------------
-def run_saifan():
-    print("=== Saifan Main Worker Started ===")
+def run_saifan_loop():
+    print("=== Saifan Real-Time Worker Started ===")
 
-    if not is_us_market_open():
-        print("[Saifan] Market closed – skipping this 5-min cycle.")
-        return
+    while True:
+        if is_us_market_open():
+            print("[Saifan] Market OPEN – running Stage 1: SPY LIVE 5m quote builder")
+            try:
+                run_cycle()
+            except Exception as e:
+                print("[Saifan] ERROR:", e)
+        else:
+            print("[Saifan] Market closed – waiting...")
 
-    print("[Saifan] Market OPEN – running Stage 1: SPY LIVE 5m quote builder")
-    run_cycle()
-
-    print("=== Saifan Stage 1 cycle complete ===")
+        # Real-time refresh interval (change if you want)
+        time.sleep(20)  # every 20 seconds
 
 
 # ------------------------------------------------------
-# Manual test
+# ENTRY POINT
 # ------------------------------------------------------
 if __name__ == "__main__":
-    run_saifan()
+    run_saifan_loop()
