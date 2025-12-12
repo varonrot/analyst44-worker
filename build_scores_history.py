@@ -2,7 +2,6 @@ import os
 from supabase import create_client, Client
 from datetime import datetime
 
-# --- Supabase init ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -10,8 +9,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def build_history():
     print("Fetching current scores...")
-
-    # Fetch all rows from the main scores table
     response = supabase.table("analyst_financial_scores").select("*").execute()
 
     if response.data is None or len(response.data) == 0:
@@ -19,12 +16,24 @@ def build_history():
         return
 
     rows = response.data
-    history_rows = []
-
     print(f"Found {len(rows)} rows. Preparing history objects...")
 
     for row in rows:
-        history_rows.append({
+
+        # --- NEW: check if history row already exists ---
+        existing = supabase.table("analyst_financial_scores_history") \
+            .select("id") \
+            .eq("symbol", row["symbol"]) \
+            .eq("last_earnings_date", row["last_earnings_date"]) \
+            .execute()
+
+        if existing.data and len(existing.data) > 0:
+            # Skip duplicate
+            print(f"Skipping existing: {row['symbol']} | {row['last_earnings_date']}")
+            continue
+
+        # Build new history row
+        history_row = {
             "original_id": row["id"],
             "symbol": row["symbol"],
             "last_earnings_date": row["last_earnings_date"],
@@ -43,15 +52,11 @@ def build_history():
             "created_at": row["created_at"],
             "direction": row["direction"],
             "saved_at": datetime.utcnow().isoformat()
-        })
+        }
 
-    print("Inserting into history table...")
-
-    # Insert in batches of 1000 if needed
-    batch_size = 500
-    for i in range(0, len(history_rows), batch_size):
-        batch = history_rows[i:i+batch_size]
-        supabase.table("analyst_financial_scores_history").insert(batch).execute()
+        # Insert row
+        supabase.table("analyst_financial_scores_history").insert(history_row).execute()
+        print(f"Inserted {row['symbol']} | {row['last_earnings_date']}")
 
     print("History build complete.")
 
