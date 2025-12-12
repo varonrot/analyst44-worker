@@ -1,5 +1,6 @@
 import os
 import requests
+from datetime import datetime, timedelta
 from supabase import create_client, Client
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -11,8 +12,13 @@ FMP_API_KEY = os.getenv("FMP_API_KEY")
 TABLE = "saifan_intraday_vix_5m"
 
 
+def round_to_5_minutes(dt: datetime):
+    """Round current UTC time down to nearest 5-minute candle"""
+    minute = (dt.minute // 5) * 5
+    return dt.replace(minute=minute, second=0, microsecond=0)
+
+
 def fetch_vix_quote():
-    """Fetch latest VIX data (5-minute quote snapshot)"""
     url = f"https://financialmodelingprep.com/api/v3/quote/%5EVIX?apikey={FMP_API_KEY}"
     r = requests.get(url)
     if r.status_code != 200:
@@ -30,17 +36,17 @@ def run_vix_cycle():
     try:
         q = fetch_vix_quote()
 
-        candle_time = q.get("timestamp")
-        if candle_time is None:
-            raise Exception("Missing timestamp from VIX quote")
+        # === MAIN FIX: generate our own 5m candle timestamp ===
+        candle_time = round_to_5_minutes(datetime.utcnow())
 
         row = {
-            "candle_time": candle_time,
+            "symbol": "VIX",
+            "candle_time": candle_time.isoformat(),
             "open": q.get("open"),
             "high": q.get("dayHigh"),
             "low": q.get("dayLow"),
             "close": q.get("price"),
-            "volume": q.get("volume"),
+            "volume": q.get("volume", 0),
         }
 
         supabase.table(TABLE).upsert(row).execute()
