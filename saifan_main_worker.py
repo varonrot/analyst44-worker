@@ -26,16 +26,17 @@ def run_saifan_loop():
             now = datetime.datetime.utcnow()
             print("[Saifan] Heartbeat")
 
-            # DAILY RESET before market opens
+            # ---- Daily Reset ----
             if now.hour < 14 and not did_reset_today:
-                print("[Saifan] Daily reset running...")
+                print("[Saifan] Running daily reset...")
                 run_daily_reset()
                 did_reset_today = True
 
+            # Allow reset for next day
             if now.hour >= 14:
                 did_reset_today = False
 
-            # MARKET OPEN
+            # ---- Market Open ----
             if is_us_market_open():
 
                 # Live SPY
@@ -44,18 +45,20 @@ def run_saifan_loop():
                 # Live VIX
                 run_vix_cycle()
 
-                # Official SPY history update every 5 minutes
-                t = time.time()
-                if t - last_spy_history >= 300:
-                    print("[Saifan] Running SPY history update...")
-                    run_history_update()
-                    last_spy_history = t
+                # Timers for history updates
+                now_ts = time.time()
 
-                # Official VIX history update every 5 minutes
-                if t - last_vix_history >= 300:
-                    print("[Saifan] Running VIX history update...")
+                # SPY history update every 5 minutes
+                if now_ts - last_spy_history >= 300:
+                    print("[Saifan] SPY history update...")
+                    run_history_update()
+                    last_spy_history = now_ts
+
+                # VIX history update every 5 minutes
+                if now_ts - last_vix_history >= 300:
+                    print("[Saifan] VIX history update...")
                     run_vix_history_update()
-                    last_vix_history = t
+                    last_vix_history = now_ts
 
             else:
                 print("[Saifan] Market closed")

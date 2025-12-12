@@ -1,56 +1,106 @@
 import os
 import requests
-from datetime import datetime, timedelta
-from supabase import create_client, Client
+from datetime import datetime
+from supabase import create_client
+from zoneinfo import ZoneInfo
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+FMP_KEY = os.getenv("FMP_API_KEY")
 
-FMP_API_KEY = os.getenv("FMP_API_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+NY = ZoneInfo("America/New_York")
 
-TABLE = "saifan_intraday_vix_5m"
+# Memory for the live bar
+live_bar = {
+    "open": None,
+    "high": None,
+    "low": None,
+    "close": None,
+    "volume": 0
+}
 
-
-def round_to_5_minutes(dt: datetime):
-    """Round current UTC time down to nearest 5-minute candle"""
-    minute = (dt.minute // 5) * 5
-    return dt.replace(minute=minute, second=0, microsecond=0)
+current_candle_time = None
 
 
 def fetch_vix_quote():
-    url = f"https://financialmodelingprep.com/api/v3/quote/%5EVIX?apikey={FMP_API_KEY}"
+    url = f"https://financialmodelingprep.com/api/v3/quote/%5EVIX?apikey={FMP_KEY}"
     r = requests.get(url)
     if r.status_code != 200:
-        raise Exception("Failed fetching VIX quote")
-
+        print("VIX LIVE ERROR:", r.text)
+        return None
     data = r.json()
     if not data:
-        raise Exception("Empty VIX response")
+        return None
+    return data[0]  # quote record
 
-    return data[0]
+
+def rounded_5min(dt):
+    return dt.replace(second=0, microsecond=0, minute=(dt.minute // 5) * 5)
+
+
+def save_bar_to_db(ts):
+    row = {
+        "symbol": "VIX",
+        "candle_time": ts.isoformat(),
+        "open": live_bar["open"],
+        "high": live_bar["high"],
+        "low": live_bar["low"],
+        "close": live_bar["close"],
+        "volume": live_bar["volume"]
+    }
+
+    print("[VIX LIVE] UPSERT:", ts, row)
+
+    supabase.table("saifan_intraday_candles_vix_5m") \
+        .upsert(row, on_conflict="symbol,candle_time") \
+        .execute()
+
+
+def start_new_bar(price, ts):
+    global live_bar
+    global current_candle_time
+
+    current_candle_time = ts
+    live_bar = {
+        "open": price,
+        "high": price,
+        "low": price,
+        "close": price,
+        "volume": 0
+    }
+    print("[VIX LIVE] New bar started:", ts)
 
 
 def run_vix_cycle():
-    """Insert live VIX data into Supabase (REAL-TIME mode)"""
-    try:
-        q = fetch_vix_quote()
+    global current_candle_time
+    global live_bar
 
-        # === MAIN FIX: generate our own 5m candle timestamp ===
-        candle_time = round_to_5_minutes(datetime.utcnow())
+    now_ny = datetime.now(NY)
+    candle_ts = rounded_5min(now_ny)
 
-        row = {
-            "symbol": "VIX",
-            "candle_time": candle_time.isoformat(),
-            "open": q.get("open"),
-            "high": q.get("dayHigh"),
-            "low": q.get("dayLow"),
-            "close": q.get("price"),
-            "volume": q.get("volume", 0),
-        }
+    q = fetch_vix_quote()
+    if not q:
+        return
 
-        supabase.table(TABLE).upsert(row).execute()
-        print("[VIX] Live row inserted:", row)
+    price = q.get("price")
+    if price is None:
+        return
 
-    except Exception as e:
-        print("[VIX ERROR] run_vix_cycle:", e)
+    # If new candle started
+    if current_candle_time != candle_ts:
+        if current_candle_time is not None:
+            save_bar_to_db(current_candle_time)
+
+        start_new_bar(price, candle_ts)
+        return
+
+    # Update live bar
+    if live_bar["open"] is None:
+        start_new_bar(price, candle_ts)
+
+    live_bar["high"] = max(live_bar["high"], price)
+    live_bar["low"] = min(live_bar["low"], price)
+    live_bar["close"] = price
+
+    print("[VIX LIVE] Update:", candle_ts, live_bar)
