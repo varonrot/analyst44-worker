@@ -186,6 +186,13 @@ rating_pe_score:
 rating_pb_score:
     PB-based score.
 
+IMPORTANT:
+All fields in section D8 (FMP RATING FIELDS) represent a CURRENT SNAPSHOT ONLY.
+
+These fields apply ONLY to latest_report.
+They MUST NOT be compared historically and MUST NOT be used for trend detection.
+If these fields appear in previous_report, they must be ignored.
+
 ===========================================================
 J. D9 – ANALYST ESTIMATES
 ===========================================================
@@ -202,6 +209,13 @@ estimated_eps_high:
 number_analysts_estimated:
     Total analysts contributing to the estimate.
 
+    IMPORTANT:
+All fields in section D9 (ANALYST ESTIMATES) represent a forward-looking consensus snapshot.
+
+They apply ONLY to latest_report.
+They MUST NOT be compared against previous_report.
+
+
 ===========================================================
 K. D11 – EARNINGS METADATA (LATEST REPORT ONLY)
 ===========================================================
@@ -211,6 +225,9 @@ last_earnings_time:
     BMO (before market open) or AMC (after market close).
 close_before_earnings:
     The closing stock price one day before earnings release.
+
+    These fields apply ONLY to latest_report and must never be compared historically.
+
 
 ===========================================================
 L. ANALYSIS SUPPORT FIELD (LATEST REPORT ONLY)
