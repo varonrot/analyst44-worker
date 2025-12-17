@@ -49,7 +49,7 @@ def build_history():
             "volatility_flag": row["volatility_flag"],
             "summary_30_words": row["summary_30_words"],
             "comparison_trend": row["comparison_trend"],
-            "created_at": row["created_at"],
+            # "created_at": row["created_at"],
             "direction": row["direction"],
             "saved_at": datetime.utcnow().isoformat()
         }
