@@ -257,7 +257,11 @@ def process_symbol(symbol: str):
         print(f"  No income data for {symbol}")
         return
 
-    income_rows = income_list[:2]
+    income_rows = sorted(
+        income_list,
+        key=lambda x: x.get("date", ""),
+        reverse=True
+    )[:2]
 
     try: balance_list = get_balance_sheets(symbol, limit=8)
     except: balance_list = []
