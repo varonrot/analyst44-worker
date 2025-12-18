@@ -13,51 +13,46 @@ def log(msg: str) -> None:
     print(f"[{ts}] {msg}", flush=True)
 
 
-def backfill_missing_earnings():
+def backfill_missing_symbols():
     today = date.today().isoformat()
-    log(f"STEP 5: Backfilling missing earnings for {today}")
+    log("STEP 5: Backfilling symbols missing earnings report")
 
-    # 1. Get all symbols analyzed today
-    scores_resp = (
+    # 1. Symbols analyzed today
+    scores = (
         supabase
         .table("analyst_financial_scores")
         .select("symbol")
         .eq("analysis_date", today)
         .execute()
+        .data
+        or []
     )
 
-    if not scores_resp.data:
-        log("No symbols found in analyst_financial_scores for today.")
-        return
+    score_symbols = {r["symbol"] for r in scores if r.get("symbol")}
 
-    score_symbols = {row["symbol"] for row in scores_resp.data if row.get("symbol")}
-    log(f"Found {len(score_symbols)} symbols with scores today")
-
-    # 2. Get all symbols already in earnings_calendar_us for today
-    calendar_resp = (
+    # 2. Symbols already in earnings calendar today
+    calendar = (
         supabase
         .table("earnings_calendar_us")
         .select("symbol")
         .eq("report_date", today)
         .execute()
+        .data
+        or []
     )
 
-    calendar_symbols = {
-        row["symbol"] for row in (calendar_resp.data or []) if row.get("symbol")
-    }
+    calendar_symbols = {r["symbol"] for r in calendar if r.get("symbol")}
 
-    # 3. Symbols missing from calendar
-    missing_symbols = sorted(score_symbols - calendar_symbols)
+    missing = sorted(score_symbols - calendar_symbols)
 
-    if not missing_symbols:
-        log("No missing symbols to backfill.")
+    if not missing:
+        log("No missing symbols found")
         return
 
-    log(f"Backfilling {len(missing_symbols)} missing symbols")
-
-    rows_to_insert = []
-    for symbol in missing_symbols:
-        rows_to_insert.append({
+    rows = []
+    for symbol in missing:
+        log(f"Inserted missing symbol: {symbol}")
+        rows.append({
             "symbol": symbol,
             "report_date": today,
             "time": "missing earnings – added by system",
@@ -70,17 +65,9 @@ def backfill_missing_earnings():
             "last_year_eps": None,
         })
 
-    # 4. Insert rows
-    insert_resp = (
-        supabase
-        .table("earnings_calendar_us")
-        .insert(rows_to_insert)
-        .execute()
-    )
-
-    log(f"Inserted {len(rows_to_insert)} rows into earnings_calendar_us")
-    log("STEP 5 completed successfully")
+    supabase.table("earnings_calendar_us").insert(rows).execute()
+    log(f"Inserted {len(rows)} missing symbols successfully")
 
 
 if __name__ == "__main__":
-    backfill_missing_earnings()
+    backfill_missing_symbols()
