@@ -49,19 +49,25 @@ def main() -> int:
         ["python3", "build_scores_history.py"],
     )
 
-    # Step 3.5: Cleanup earnings_calendar_us table before rebuilding
+    # Step 3.5: Cleanup earnings_calendar_us table
     run_step(
         "cleanup_earnings_calendar",
         ["python3", "cleanup_earnings_calendar.py"],
     )
 
-    # Step 4: Update earnings calendar table
+    # Step 4: Sync earnings calendar (Nasdaq / source of truth)
     if not run_step(
         "update_earnings_calendar",
         ["python3", "earnings_calendar_us_sync_reset.py"],
     ):
         log("Stopping pipeline because earnings calendar update failed.")
         return 1
+
+    # ✅ Step 5: Backfill missing earnings symbols
+    run_step(
+        "backfill_missing_earnings",
+        ["python3", "earnings_calendar_us_backfill.py"],
+    )
 
     log("🎯 analyst44 daily pipeline finished")
     return 0
