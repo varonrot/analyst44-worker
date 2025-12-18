@@ -1,64 +1,63 @@
 import os
+from supabase import create_client
 from datetime import date
-from supabase import create_client, Client
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-TODAY = date.today().isoformat()
 
-def step_5_backfill_missing_earnings():
-    print("STEP 5: Backfilling symbols with missing latest earnings")
+def backfill_missing_symbols():
+    print("STEP 5: Backfilling symbols missing from earnings_calendar_us")
 
-    # 1. Pull all symbols + last earnings date
-    res = (
+    # 1. Symbols with scores but no calendar row
+    rows = (
         supabase
         .table("analyst_financial_scores")
         .select("symbol, last_earnings_date")
         .execute()
     )
 
-    if not res.data:
-        print("No rows found in analyst_financial_scores")
+    if not rows.data:
+        print("No financial scores found")
         return
 
-    symbols_added = 0
+    symbols = {r["symbol"]: r["last_earnings_date"] for r in rows.data}
 
-    for row in res.data:
-        symbol = row["symbol"]
-        last_earnings_date = row["last_earnings_date"]
+    existing = (
+        supabase
+        .table("earnings_calendar_us")
+        .select("symbol")
+        .execute()
+    )
 
-        # 2. Skip if already updated today
-        if last_earnings_date == TODAY:
+    existing_symbols = {r["symbol"] for r in (existing.data or [])}
+
+    to_insert = []
+
+    for symbol, last_earnings_date in symbols.items():
+        if symbol in existing_symbols:
             continue
 
-        # 3. Check if symbol already exists in earnings_calendar_us
-        exists = (
-            supabase
-            .table("earnings_calendar_us")
-            .select("id")
-            .eq("symbol", symbol)
-            .limit(1)
-            .execute()
-        )
-
-        if exists.data:
-            continue
-
-        # 4. Insert symbol for re-check
-        supabase.table("earnings_calendar_us").insert({
+        to_insert.append({
             "symbol": symbol,
-            "report_date": TODAY,
-            "source": "backfill_step_5",
-        }).execute()
+            "report_date": date.today().isoformat(),
+            "time": "unknown",
+            "company_name": None,
+            "market_cap": None,
+            "fiscal_quarter_ending": None,
+            "consensus_eps": None,
+        })
 
-        symbols_added += 1
-        print(f"Added {symbol} to earnings_calendar_us")
+        print(f"Inserted missing symbol: {symbol}")
 
-    print(f"STEP 5 completed — {symbols_added} symbols added")
+    if to_insert:
+        supabase.table("earnings_calendar_us").insert(to_insert).execute()
+        print(f"Inserted {len(to_insert)} symbols")
+    else:
+        print("No missing symbols to insert")
 
 
 if __name__ == "__main__":
-    step_5_backfill_missing_earnings()
+    backfill_missing_symbols()
