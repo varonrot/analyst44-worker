@@ -53,23 +53,18 @@ NEGATIVE_KEYWORDS = [
     "wealth advisors"
 ]
 
-def is_earnings_related(news: dict, earnings_date: str | None, symbol: str) -> bool:
-    title = news.get("title", "").lower()
-    text = f"{title} {news.get('text','')}".lower()
+def is_earnings_related(news: dict, earnings_date: str | None) -> bool:
+    text = f"{news.get('title','')} {news.get('text','')}".lower()
 
-    # 1. החברה חייבת להיות בכותרת
-    if symbol.lower() not in title:
-        return False
-
-    # 2. חייב מילות Earnings
+    # חייב לכלול מילות דוח
     if not any(k in text for k in EARNINGS_KEYWORDS):
         return False
 
-    # 3. מסנן רעש ידוע
+    # מסנן רעש
     if any(k in text for k in NEGATIVE_KEYWORDS):
         return False
 
-    # 4. חלון זמן ±3 ימים
+    # חלון זמן סביב הדוח (±3 ימים)
     if earnings_date and news.get("publishedDate"):
         try:
             pub = datetime.fromisoformat(news["publishedDate"][:19])
@@ -80,7 +75,6 @@ def is_earnings_related(news: dict, earnings_date: str | None, symbol: str) -> b
             pass
 
     return True
-
 
 # =============================
 # DATA SOURCES
@@ -127,7 +121,7 @@ def main():
         inserted = 0
 
         for news in news_list:
-            if not is_earnings_related(news, earnings_date, symbol):
+            if not is_earnings_related(news, earnings_date):
                 continue
 
             row = {
