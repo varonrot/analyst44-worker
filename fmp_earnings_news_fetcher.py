@@ -35,14 +35,41 @@ EARNINGS_KEYWORDS = [
     "misses"
 ]
 
-def is_earnings_related(news: dict, earnings_date: str | None) -> bool:
-    text = f"{news.get('title','')} {news.get('text','')}".lower()
+NEGATIVE_KEYWORDS = [
+    "dividend",
+    "shares purchased",
+    "shares sold",
+    "position cut",
+    "position increased",
+    "insider",
+    "hedge fund",
+    "etf",
+    "top stocks",
+    "best stocks",
+    "million investment",
+    "acquired",
+    "sold by",
+    "retirement system",
+    "wealth advisors"
+]
 
-    # 1. Keyword check
+def is_earnings_related(news: dict, earnings_date: str | None, symbol: str) -> bool:
+    title = news.get("title", "").lower()
+    text = f"{title} {news.get('text','')}".lower()
+
+    # 1. החברה חייבת להיות בכותרת
+    if symbol.lower() not in title:
+        return False
+
+    # 2. חייב מילות Earnings
     if not any(k in text for k in EARNINGS_KEYWORDS):
         return False
 
-    # 2. Optional: time window around earnings date (±3 days)
+    # 3. מסנן רעש ידוע
+    if any(k in text for k in NEGATIVE_KEYWORDS):
+        return False
+
+    # 4. חלון זמן ±3 ימים
     if earnings_date and news.get("publishedDate"):
         try:
             pub = datetime.fromisoformat(news["publishedDate"][:19])
@@ -53,6 +80,7 @@ def is_earnings_related(news: dict, earnings_date: str | None) -> bool:
             pass
 
     return True
+
 
 # =============================
 # DATA SOURCES
@@ -99,7 +127,7 @@ def main():
         inserted = 0
 
         for news in news_list:
-            if not is_earnings_related(news, earnings_date):
+            if not is_earnings_related(news, earnings_date, symbol):
                 continue
 
             row = {
