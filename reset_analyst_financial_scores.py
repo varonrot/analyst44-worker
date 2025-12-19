@@ -9,15 +9,16 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 def reset_scores():
     print("Resetting analyst_financial_scores...")
 
-    result = (
+    # חובה WHERE – תופס את כל השורות
+    res = (
         supabase
         .table("analyst_financial_scores")
         .delete()
-        .neq("id", 0)   # ← קריטי! בלי זה זה תמיד ייכשל
+        .neq("id", 0)   # <-- הטריק: WHERE שתמיד true
         .execute()
     )
 
-    deleted = len(result.data) if result.data else 0
+    deleted = len(res.data) if res.data else 0
     print(f"Deleted rows: {deleted}")
 
 if __name__ == "__main__":
