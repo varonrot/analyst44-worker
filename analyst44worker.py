@@ -36,6 +36,14 @@ def main() -> int:
         log("Stopping pipeline because financial statements step failed.")
         return 1
 
+    # 🔹 Step 1.2: Fetch earnings-related news
+    if not run_step(
+            "fetch_earnings_news",
+            ["python3", "fmp_earnings_news_fetcher.py"],
+    ):
+        log("Stopping pipeline because fetch_earnings_news failed.")
+        return 1
+
     # 🔹 Step 1.5: Reset daily scores snapshot
     if not run_step(
         "reset_financial_scores",
