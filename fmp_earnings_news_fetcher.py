@@ -15,7 +15,7 @@ def get_earnings_symbols():
     res = (
         supabase
         .table("earnings_calendar_us")
-        .select("symbol, earnings_date")
+        .select("symbol, report_date")
         .execute()
     )
     return res.data or []
@@ -37,7 +37,7 @@ def main():
 
     for item in earnings:
         symbol = item["symbol"]
-        earnings_date = item["earnings_date"]
+        earnings_date = item["report_date"]
 
         try:
             news_list = fetch_news_for_symbol(symbol, earnings_date)
