@@ -13,12 +13,11 @@ def reset_scores():
         supabase
         .table("analyst_financial_scores")
         .delete()
-        .neq("id", 0)   # מחיקה בטוחה לכל השורות
         .execute()
     )
 
     deleted = len(result.data) if result.data else 0
-    print(f"Deleted {deleted} rows from analyst_financial_scores")
+    print(f"Deleted rows: {deleted}")
 
 if __name__ == "__main__":
     reset_scores()
