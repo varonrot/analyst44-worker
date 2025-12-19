@@ -13,7 +13,7 @@ def reset_scores():
         supabase
         .table("analyst_financial_scores")
         .delete()
-        .neq("id", 0)   # 👈 WHERE שתמיד נכון
+        .neq("id", 0)   # ← קריטי! בלי זה זה תמיד ייכשל
         .execute()
     )
 
