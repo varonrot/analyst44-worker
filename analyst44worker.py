@@ -36,7 +36,15 @@ def main() -> int:
         log("Stopping pipeline because financial statements step failed.")
         return 1
 
-    # Step 2: Run financial scoring
+    # 🔹 Step 1.5: Reset daily scores snapshot
+    if not run_step(
+        "reset_financial_scores",
+        ["python3", "reset_analyst_financial_scores.py"],
+    ):
+        log("Stopping pipeline because reset_financial_scores failed.")
+        return 1
+
+    # Step 2: Run financial scoring (build fresh snapshot)
     if not run_step(
         "financial_scores",
         ["python3", "analyst_financial_scores_worker.py"],
@@ -49,13 +57,13 @@ def main() -> int:
         ["python3", "build_scores_history.py"],
     )
 
-    # Step 3.5: Cleanup earnings_calendar_us table
+    # Step 3.5: Cleanup earnings calendar
     run_step(
         "cleanup_earnings_calendar",
         ["python3", "cleanup_earnings_calendar.py"],
     )
 
-    # Step 4: Sync earnings calendar (Nasdaq / source of truth)
+    # Step 4: Sync earnings calendar
     if not run_step(
         "update_earnings_calendar",
         ["python3", "earnings_calendar_us_sync_reset.py"],
@@ -63,7 +71,7 @@ def main() -> int:
         log("Stopping pipeline because earnings calendar update failed.")
         return 1
 
-    # ✅ Step 5: Backfill missing earnings symbols
+    # Step 5: Backfill missing earnings symbols
     run_step(
         "backfill_missing_earnings",
         ["python3", "earnings_calendar_us_backfill.py"],
