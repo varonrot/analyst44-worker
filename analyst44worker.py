@@ -36,6 +36,22 @@ def main() -> int:
         log("Stopping pipeline because financial statements step failed.")
         return 1
 
+    # 🔹 Step 1.1: Sync SPY daily bars (6 months, FMP)
+    if not run_step(
+        "spy_daily_bars_sync",
+        ["python3", "spy_daily_bars_sync.py"],
+    ):
+        log("Stopping pipeline because spy_daily_bars_sync failed.")
+        return 1
+
+    # 🔹 Step 1.15: SPY market state AI decision
+    if not run_step(
+            "spy_market_state_daily",
+            ["python3", "spy_market_state_daily_runner.py"],
+    ):
+        log("Stopping pipeline because spy_market_state_daily failed.")
+        return 1
+
     # 🔹 Step 1.2: Fetch earnings-related news
     if not run_step(
             "fetch_earnings_news",
