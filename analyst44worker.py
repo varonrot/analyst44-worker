@@ -36,6 +36,14 @@ def main() -> int:
         log("Stopping pipeline because financial statements step failed.")
         return 1
 
+    # Step 1.09: Reset SPY daily bars table
+    if not run_step(
+            "spy_daily_bars_reset",
+            ["python3", "spy_daily_bars_reset.py"],
+    ):
+        log("Stopping pipeline because spy_daily_bars_reset failed.")
+        return 1
+    
     # 🔹 Step 1.1: Sync SPY daily bars (6 months, FMP)
     if not run_step(
         "spy_daily_bars_sync",
