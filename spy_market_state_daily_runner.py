@@ -19,7 +19,7 @@ if not all([SUPABASE_URL, SUPABASE_KEY, OPENAI_API_KEY]):
     raise Exception("Missing environment variables")
 
 # =============================
-# CLIENTS (‼️ קריטי ‼️)
+# CLIENTS  ❗❗❗
 # =============================
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 client = OpenAI(api_key=OPENAI_API_KEY)
