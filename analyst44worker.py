@@ -81,7 +81,7 @@ def main() -> int:
         "vix_market_state_daily",
         ["python3", "vix_market_state_daily_runner.py"]
     )
-    
+
     # 🔹 Step 1.2: Fetch earnings-related news
     if not run_step(
             "fetch_earnings_news",
@@ -104,6 +104,14 @@ def main() -> int:
         ["python3", "analyst_financial_scores_worker.py"],
     ):
         log("Score step finished (may include errors).")
+
+    # 🔹 Step 2.5: News Fundamental Revalidation
+    if not run_step(
+        "news_fundamental_revalidation",
+        ["python3", "news_fundamental_revalidation_runner.py"],
+    ):
+        log("Stopping pipeline because news_fundamental_revalidation failed.")
+        return 1
 
     # Step 3: Save score history
     run_step(
