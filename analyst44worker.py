@@ -43,7 +43,7 @@ def main() -> int:
     ):
         log("Stopping pipeline because spy_daily_bars_reset failed.")
         return 1
-    
+
     # 🔹 Step 1.1: Sync SPY daily bars (6 months, FMP)
     if not run_step(
         "spy_daily_bars_sync",
@@ -58,6 +58,22 @@ def main() -> int:
             ["python3", "spy_market_state_daily_runner.py"],
     ):
         log("Stopping pipeline because spy_market_state_daily failed.")
+        return 1
+
+    # 🔄 Step 1.16: Reset VIX daily bars table
+    if not run_step(
+            "vix_daily_bars_reset",
+            ["python3", "vix_daily_reset.py"],
+    ):
+        log("Stopping pipeline because vix_daily_bars_reset failed.")
+        return 1
+
+    # 📈 Step 1.17: Sync VIX daily bars (6 months, FMP)
+    if not run_step(
+            "vix_daily_bars_sync",
+            ["python3", "vix_daily_history_loader.py"],
+    ):
+        log("Stopping pipeline because vix_daily_bars_sync failed.")
         return 1
 
     # 🔹 Step 1.2: Fetch earnings-related news
