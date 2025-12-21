@@ -55,7 +55,7 @@ Do NOT include explanations, formatting, markdown, or any text outside the JSON.
 
 The JSON object MUST contain EXACTLY these keys:
 
-{
+{{
   "fundamental_change_flag": "YES or NO",
   "fundamental_change_reason": "One short sentence, max 20 words",
   "updated_total_score": integer,
@@ -66,7 +66,7 @@ The JSON object MUST contain EXACTLY these keys:
   "bias_label": "Strong Bullish | Bullish | Neutral / Mixed | Bearish | Strong Bearish | High Risk / Unclear",
   "bias_confidence": integer,
   "bias_summary": "One sentence, max 18 words"
-}
+}}
 
 Strict rules:
 - If fundamental_change_flag = NO → updated_total_score MUST equal the baseline total_score
