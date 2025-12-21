@@ -76,6 +76,12 @@ def main() -> int:
         log("Stopping pipeline because vix_daily_bars_sync failed.")
         return 1
 
+    # Step 1.18: VIX market state AI decision
+    run_step(
+        "vix_market_state_daily",
+        ["python3", "vix_market_state_daily_runner.py"]
+    )
+    
     # 🔹 Step 1.2: Fetch earnings-related news
     if not run_step(
             "fetch_earnings_news",
