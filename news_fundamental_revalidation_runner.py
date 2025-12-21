@@ -53,7 +53,7 @@ def collect_news_for_symbol(symbol: str):
         .table("fmp_news")
         .select("site, title, body")
         .eq("symbol", symbol)
-        .order("published_date", desc=True)
+        .order("published_at", desc=True)
         .execute()
     )
 
