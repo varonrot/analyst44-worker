@@ -152,9 +152,9 @@ Body: {n.get('body')}
         swing_forecast_weeks_2_3=baseline["swing_forecast_weeks_2_3"],
         volatility_flag=baseline["volatility_flag"],
         summary_30_words=baseline["summary_30_words"],
+        news_block=news_block  # ← זה החסר
     )
 
-    full_prompt = prompt + "\n\n# NEWS INPUT\n" + news_block
 
     log(f"Prompt built for {symbol} (news={len(news_items)})")
 
@@ -163,7 +163,7 @@ Body: {n.get('body')}
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are Analyst44 Fundamental News Revalidation Engine."},
-            {"role": "user", "content": full_prompt}
+            {"role": "user", "content": prompt}
         ],
         temperature=0.2
     )
