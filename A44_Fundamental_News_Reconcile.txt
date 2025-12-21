@@ -97,23 +97,6 @@ Therefore:
 Based on the baseline fundamental analysis and the new market news,
 determine whether the fundamental analysis outcome has changed.
 
-You must produce the following fields:
-
-1. fundamental_change_flag
-   - YES if the news materially changes the fundamental outlook
-   - NO if the existing assessment remains valid
-
-2. fundamental_change_reason
-   - Short, concrete explanation (one sentence)
-   - Explain WHY the score changed or WHY it did not
-
-3. updated_total_score
-   - Integer between 0 and 100
-   - If fundamental_change_flag = NO:
-       return the SAME total_score provided in the baseline
-   - If fundamental_change_flag = YES:
-       return a NEW adjusted total_score reflecting the updated outlook
-
 Rules:
 - Do NOT re-analyze raw financial statements.
 - Do NOT introduce new metrics or assumptions.
@@ -201,18 +184,34 @@ The response must be a single JSON object with exactly these keys:
 
 Any response that is not valid JSON is considered a FAILURE.
 
+IMPORTANT:
+Output a single valid JSON object only.
+No numbering, no labels, no explanations, no extra text.
+
+
 EXAMPLE OUTPUT (FORMAT ONLY):
 
 {
-  "fundamental_change_flag": "NO",
-  "fundamental_change_reason": "Recent earnings confirm existing growth expectations.",
-  "updated_total_score": 85,
-  "earnings_analysis_text": "Text here...",
-  "short_term_bias": "Moderately Bullish",
-  "confidence_level": "Medium-High",
-  "market_focus": "Earnings strength",
-  "bias_label": "Bullish",
-  "bias_confidence": 80,
-  "bias_summary": "Strong earnings support continued bullish outlook."
+  "fundamental_change_flag": "YES|NO",
+  "fundamental_change_reason": "string",
+  "updated_total_score": number,
+  "earnings_analysis_text": "string",
+  "short_term_bias": "string",
+  "confidence_level": "Low|Medium|Medium-High|High",
+  "market_focus": "string",
+  "bias_label": "Strong Bullish|Bullish|Neutral / Mixed|Bearish|Strong Bearish|High Risk / Unclear",
+  "bias_confidence": number,
+  "bias_summary": "string"
 }
 
+FINAL INSTRUCTION (CRITICAL):
+
+Return ONLY a valid JSON object.
+Do NOT include:
+- numbered lists
+- explanations
+- headings
+- markdown
+- text before or after the JSON
+
+If your response contains anything outside the JSON object, it will be rejected.
