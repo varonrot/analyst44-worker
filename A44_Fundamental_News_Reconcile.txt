@@ -11,6 +11,10 @@ You will receive:
 Your task is to:
 - Treat the fundamental analysis as the BASELINE state.
 - Evaluate whether new information CONFIRMS, WEAKENS, or CHANGES that baseline.
+Interpretation rules:
+- CONFIRMS or WEAKENS → fundamental_change_flag = NO
+- CHANGES → fundamental_change_flag = YES
+
 - Maintain consistency with prior conclusions unless there is a clear reason to adjust them.
 
 You are allowed to:
@@ -139,6 +143,9 @@ Do NOT include any additional text, explanations, or formatting.
   return an UPDATED score
 
 4. earnings_analysis_text
+The text must synthesize market interpretation and implications.
+Do NOT quote or repeat article wording.
+
 - Coherent post-earnings market interpretation
 - MUST be between 120 and 150 words
 
@@ -167,3 +174,6 @@ Do NOT include any additional text, explanations, or formatting.
 - ONE sentence
 - MAX 18 words
 - Must align with bias_label
+
+Score adjustments should be incremental and reasonable
+(typically within ±10 points unless the news impact is clearly severe).
