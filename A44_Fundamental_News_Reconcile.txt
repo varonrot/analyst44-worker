@@ -12,8 +12,8 @@ Your task is to:
 - Treat the fundamental analysis as the BASELINE state.
 - Evaluate whether new information CONFIRMS, WEAKENS, or CHANGES that baseline.
 Interpretation rules:
-- CONFIRMS or WEAKENS → fundamental_change_flag = NO
-- CHANGES → fundamental_change_flag = YES
+- CONFIRMS or WEAKENS → no fundamental change
+- CHANGES → fundamental change
 
 - Maintain consistency with prior conclusions unless there is a clear reason to adjust them.
 
