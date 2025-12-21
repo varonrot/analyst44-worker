@@ -177,3 +177,42 @@ Do NOT quote or repeat article wording.
 
 Score adjustments should be incremental and reasonable
 (typically within ±10 points unless the news impact is clearly severe).
+
+CRITICAL OUTPUT FORMAT REQUIREMENT
+
+You MUST return a VALID JSON object ONLY.
+Do NOT include numbering, bullet points, explanations, or markdown.
+Do NOT include any text before or after the JSON.
+
+The response must be a single JSON object with exactly these keys:
+
+{
+  "fundamental_change_flag": "YES|NO",
+  "fundamental_change_reason": "string",
+  "updated_total_score": number,
+  "earnings_analysis_text": "string",
+  "short_term_bias": "string",
+  "confidence_level": "Low|Medium|Medium-High|High",
+  "market_focus": "string",
+  "bias_label": "Strong Bullish|Bullish|Neutral / Mixed|Bearish|Strong Bearish|High Risk / Unclear",
+  "bias_confidence": number,
+  "bias_summary": "string"
+}
+
+Any response that is not valid JSON is considered a FAILURE.
+
+EXAMPLE OUTPUT (FORMAT ONLY):
+
+{
+  "fundamental_change_flag": "NO",
+  "fundamental_change_reason": "Recent earnings confirm existing growth expectations.",
+  "updated_total_score": 85,
+  "earnings_analysis_text": "Text here...",
+  "short_term_bias": "Moderately Bullish",
+  "confidence_level": "Medium-High",
+  "market_focus": "Earnings strength",
+  "bias_label": "Bullish",
+  "bias_confidence": 80,
+  "bias_summary": "Strong earnings support continued bullish outlook."
+}
+
