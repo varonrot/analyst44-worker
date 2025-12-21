@@ -23,16 +23,16 @@ DAYS_BACK = 180
 SOURCE = "FMP"
 
 # ======================
-# STEP 1.16 – RESET TABLE
+# STEP 1.16 – RESET TABLE (CORRECT WAY)
 # ======================
 def reset_vix_table():
     print("Resetting vix_daily table...")
-    supabase.rpc(
-        "execute_sql",
-        {
-            "sql": "TRUNCATE TABLE vix_daily RESTART IDENTITY;"
-        }
-    ).execute()
+
+    supabase.table("vix_daily") \
+        .delete() \
+        .neq("trade_date", "1900-01-01") \
+        .execute()
+
     print("vix_daily table reset completed")
 
 # ======================
