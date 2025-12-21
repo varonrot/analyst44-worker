@@ -10,6 +10,10 @@ Decision logic:
 - If news CONFIRMS or slightly WEAKENS the baseline → NO fundamental change
 - If news MATERIALLY CHANGES earnings quality, growth outlook, or risk → YES fundamental change
 
+IMPORTANT DEFAULT RULE:
+If the news does NOT clearly and materially contradict the baseline,
+you MUST return fundamental_change_flag = "NO".
+
 Maintain consistency with the baseline unless there is a clear contradiction.
 
 ========================
@@ -46,8 +50,13 @@ Repeated information represents a single signal.
 OUTPUT REQUIREMENTS
 ========================
 
-You MUST return ONE valid JSON object ONLY.
-No text, no explanations, no formatting, no markdown.
+You MUST ALWAYS return ONE valid JSON object.
+NEVER return an empty response.
+NEVER omit any field.
+
+If there is no material fundamental change:
+- Set fundamental_change_flag = "NO"
+- Keep updated_total_score EQUAL to the baseline score
 
 The JSON object MUST contain EXACTLY these keys:
 
@@ -65,10 +74,10 @@ The JSON object MUST contain EXACTLY these keys:
 }
 
 Rules:
-- If fundamental_change_flag = NO → updated_total_score MUST equal baseline score
-- If YES → adjust score gradually (±10 typical)
 - earnings_analysis_text MUST be between 120 and 150 words
+- bias_confidence MUST be between 0 and 100
 - Do NOT include any extra keys
 - Do NOT include any text outside the JSON
+- Do NOT return explanations, comments, or markdown
 
-If you cannot comply, return NOTHING.
+You MUST always comply by returning a valid JSON object.
