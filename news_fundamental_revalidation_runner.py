@@ -179,7 +179,7 @@ Body: {n.get('body')}
         log(raw_text)
         return None
 
-    # ✅ FIX: normalize AI keys (strip whitespace / newlines)
+    # ✅ חובה – ניקוי מפתחות
     ai_result = {
         k.strip(): v
         for k, v in ai_result.items()
