@@ -112,10 +112,11 @@ def collect_baseline_for_symbol(symbol: str):
     return baseline
 
 # ==================================================
-# STAGE 4 – SEND BASELINE + NEWS TO AI
+# STAGE 4 – SEND BASELINE + NEWS TO AI (CLEAN)
 # ==================================================
 
 import json
+import os
 from openai import OpenAI
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -138,23 +139,12 @@ Title: {n.get('title')}
 Body: {n.get('body')}
 """
 
-    # --- inject baseline ---
+    # --- build prompt ---
     prompt = prompt_template.format(
         symbol=symbol,
-        analysis_date=baseline["analysis_date"],
-        last_earnings_date=baseline["last_earnings_date"],
-        total_score=baseline["total_score"],
-        profitability=baseline["profitability"],
-        growth=baseline["growth"],
-        financial_strength=baseline["financial_strength"],
-        target_range_low=baseline["target_range_low"],
-        target_range_high=baseline["target_range_high"],
-        swing_forecast_weeks_2_3=baseline["swing_forecast_weeks_2_3"],
-        volatility_flag=baseline["volatility_flag"],
-        summary_30_words=baseline["summary_30_words"],
-        news_block=news_block  # ← זה החסר
+        base_score=baseline["total_score"],
+        news_block=news_block
     )
-
 
     log(f"Prompt built for {symbol} (news={len(news_items)})")
 
@@ -162,28 +152,22 @@ Body: {n.get('body')}
     response = openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are Analyst44 Fundamental News Revalidation Engine."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are a financial analyst AI. Return ONLY valid JSON."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
         ],
         temperature=0.2
     )
 
     raw_text = response.choices[0].message.content.strip()
-
     log(f"AI response received for {symbol}")
 
-    # --- hard JSON extraction ---
-    start = raw_text.find("{")
-    end = raw_text.rfind("}")
-
-    if start == -1 or end == -1:
-        log(f"ERROR: No valid JSON object returned for {symbol}")
-        log(raw_text)
-        return None
-
-    raw_text = raw_text[start:end + 1]
-
-    # --- parse JSON ---
+    # --- parse JSON strictly ---
     try:
         ai_result = json.loads(raw_text)
     except Exception as e:
@@ -191,29 +175,11 @@ Body: {n.get('body')}
         log(raw_text)
         return None
 
-    # --- normalize keys (CRITICAL FIX) ---
-    clean_ai_result = {}
-
-    for k, v in ai_result.items():
-        clean_key = (
-            str(k)
-            .replace("\n", "")
-            .replace("\t", "")
-            .replace('"', "")
-            .replace("'", "")
-            .strip()
-        )
-        clean_ai_result[clean_key] = v
-
-    ai_result = clean_ai_result
-
-    log(f"AI RESULT KEYS CLEAN ({symbol}): {list(ai_result.keys())}")
-
-    # --- validate ---
+    # --- validate required keys ---
     REQUIRED_KEYS = [
-        "fundamental_change_flag",
         "updated_total_score",
-        "bias_label"
+        "bias_label",
+        "summary_30_words"
     ]
 
     for k in REQUIRED_KEYS:
@@ -222,45 +188,45 @@ Body: {n.get('body')}
             log(f"AI RESULT CONTENT ({symbol}): {ai_result}")
             return None
 
+    # --- final sanity checks ---
+    if not isinstance(ai_result["updated_total_score"], int):
+        log(f"ERROR: updated_total_score must be int for {symbol}")
+        return None
+
+    if ai_result["updated_total_score"] < 0 or ai_result["updated_total_score"] > 100:
+        log(f"ERROR: updated_total_score out of range for {symbol}")
+        return None
+
+    log(f"AI REVALIDATION OK ({symbol}) → score={ai_result['updated_total_score']} | bias={ai_result['bias_label']}")
+
     return ai_result
 
 # ==================================================
-# STAGE 5 – SAVE AI RESULT TO news_analyst_core
+# STAGE 5 – SAVE AI RESULT TO news_analyst_revalidation
 # ==================================================
 
-def update_news_analyst_core(symbol: str, analysis_date, ai_result: dict):
+from datetime import datetime
+
+def update_news_analyst_revalidation(symbol: str, analysis_date, ai_result: dict):
     log(f"Persisting AI revalidation result for {symbol}")
 
     payload = {
         "symbol": symbol,
         "analysis_date": analysis_date,
 
-        # --- core decision ---
-        "fundamental_change_flag": ai_result.get("fundamental_change_flag"),
-        "fundamental_change_reason": ai_result.get("fundamental_change_reason"),
-        "updated_total_score": ai_result.get("updated_total_score"),
-
-        # --- narrative ---
-        "earnings_analysis_text": ai_result.get("earnings_analysis_text"),
-
-        # --- bias layer ---
-        "bias_label": ai_result.get("bias_label"),
-        "bias_confidence": ai_result.get("bias_confidence"),
-        "bias_summary": ai_result.get("bias_summary"),
-
-        # --- short-term framing ---
-        "short_term_bias": ai_result.get("short_term_bias"),
-        "confidence_level": ai_result.get("confidence_level"),
-        "market_focus": ai_result.get("market_focus"),
+        "updated_total_score": ai_result["updated_total_score"],
+        "bias_label": ai_result["bias_label"],
+        "summary_30_words": ai_result["summary_30_words"],
 
         "updated_at": datetime.utcnow().isoformat()
     }
 
-    supabase.table("news_analyst_core") \
+    supabase.table("news_analyst_revalidation") \
         .upsert(payload, on_conflict="symbol,analysis_date") \
         .execute()
 
-    log(f"news_analyst_core updated for {symbol}")
+    log(f"news_analyst_revalidation updated for {symbol}")
+
 
 
 # ==================================================
@@ -286,18 +252,15 @@ def run_for_symbol(symbol: str):
         log(f"No AI result for {symbol} – skipping DB update")
         return
 
-    # --- SAFETY GATE BEFORE STAGE 5 ---
-    if not ai_result:
-        log(f"Skipping {symbol} – invalid AI result")
-        return
-
-    update_news_analyst_core(
+    # ---- STAGE 5 (NEW) ----
+    update_news_analyst_revalidation(
         symbol=symbol,
         analysis_date=baseline["analysis_date"],
         ai_result=ai_result
     )
 
     log(f"Finished processing for symbol: {symbol}")
+
 
 def main():
     log("News Fundamental Revalidation Runner started")
