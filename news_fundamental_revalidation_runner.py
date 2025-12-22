@@ -116,7 +116,7 @@ def collect_baseline_for_symbol(symbol: str):
     return baseline
 
 # ==================================================
-# STAGE 4 – SEND BASELINE + NEWS TO AI (CLEAN)
+# STAGE 4 – SEND BASELINE + NEWS TO AI (CLEAN & STABLE)
 # ==================================================
 
 import json
@@ -179,37 +179,44 @@ Body: {n.get('body')}
         log(raw_text)
         return None
 
-    # ✅ חובה – ניקוי מפתחות
+    # --- normalize keys (CRITICAL FIX) ---
     ai_result = {
         k.strip(): v
         for k, v in ai_result.items()
     }
 
-    log(f"🔥 STRIP FIX ACTIVE | VERSION={APP_VERSION}")
+    log(f"🔥 STRIP FIX ACTIVE | VERSION={APP_VERSION} | SYMBOL={symbol}")
 
     # --- validate required keys ---
-    REQUIRED_KEYS = [
+    required_keys = {
         "updated_total_score",
         "bias_label",
         "summary_30_words"
-    ]
+    }
 
-    for k in REQUIRED_KEYS:
-        if k not in ai_result:
-            log(f"ERROR: missing key '{k}' for {symbol}")
-            log(f"AI RESULT CONTENT ({symbol}): {ai_result}")
-            return None
-
-    # --- final sanity checks ---
-    if not isinstance(ai_result["updated_total_score"], int):
-        log(f"ERROR: updated_total_score must be int for {symbol}")
+    missing = required_keys - ai_result.keys()
+    if missing:
+        log(f"❌ Missing keys after normalization for {symbol}: {missing}")
+        log(f"AI RESULT KEYS ({symbol}): {list(ai_result.keys())}")
+        log(f"AI RESULT CONTENT ({symbol}): {ai_result}")
         return None
 
-    if ai_result["updated_total_score"] < 0 or ai_result["updated_total_score"] > 100:
+    # --- cast + sanity checks ---
+    try:
+        ai_result["updated_total_score"] = int(ai_result["updated_total_score"])
+    except Exception:
+        log(f"ERROR: updated_total_score not castable to int for {symbol}")
+        log(f"VALUE: {ai_result.get('updated_total_score')}")
+        return None
+
+    if not (0 <= ai_result["updated_total_score"] <= 100):
         log(f"ERROR: updated_total_score out of range for {symbol}")
         return None
 
-    log(f"AI REVALIDATION OK ({symbol}) → score={ai_result['updated_total_score']} | bias={ai_result['bias_label']}")
+    log(
+        f"AI REVALIDATION OK ({symbol}) → "
+        f"score={ai_result['updated_total_score']} | bias={ai_result['bias_label']}"
+    )
 
     return ai_result
 
