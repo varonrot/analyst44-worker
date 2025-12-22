@@ -116,7 +116,7 @@ def collect_baseline_for_symbol(symbol: str):
     return baseline
 
 # ==================================================
-# STAGE 4 – SEND BASELINE + NEWS TO AI (CLEAN & STABLE)
+# STAGE 4 – SEND BASELINE + NEWS TO AI (FINAL FIX)
 # ==================================================
 
 import json
@@ -169,18 +169,24 @@ Body: {n.get('body')}
         temperature=0.2
     )
 
-    raw_text = response.choices[0].message.content.strip()
-    log(f"AI response received for {symbol}")
+    raw_text = response.choices[0].message.content or ""
+    raw_text = raw_text.strip()
+
+    # 🔥 CRITICAL FIX — clean BEFORE json.loads
+    raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+    raw_text = raw_text.lstrip("\ufeff")  # remove BOM if exists
+
+    log(f"AI RAW CLEANED ({symbol}): {raw_text}")
 
     # --- parse JSON strictly ---
     try:
         ai_result = json.loads(raw_text)
     except Exception as e:
-        log(f"ERROR parsing AI JSON for {symbol}: {e}")
-        log(raw_text)
+        log(f"❌ ERROR parsing AI JSON for {symbol}: {e}")
+        log(f"RAW TEXT ({symbol}): {raw_text}")
         return None
 
-    # --- normalize keys (CRITICAL FIX) ---
+    # --- normalize keys (final safety) ---
     def normalize_key(k: str) -> str:
         return re.sub(r"[^a-zA-Z0-9_]", "", k)
 
@@ -189,7 +195,7 @@ Body: {n.get('body')}
         for k, v in ai_result.items()
     }
 
-    log(f"🔥 STRIP FIX ACTIVE | VERSION={APP_VERSION} | SYMBOL={symbol}")
+    log(f"🔥 STAGE 4 ACTIVE | VERSION={APP_VERSION} | SYMBOL={symbol}")
 
     # --- validate required keys ---
     required_keys = {
@@ -209,20 +215,21 @@ Body: {n.get('body')}
     try:
         ai_result["updated_total_score"] = int(ai_result["updated_total_score"])
     except Exception:
-        log(f"ERROR: updated_total_score not castable to int for {symbol}")
+        log(f"❌ updated_total_score not castable to int for {symbol}")
         log(f"VALUE: {ai_result.get('updated_total_score')}")
         return None
 
     if not (0 <= ai_result["updated_total_score"] <= 100):
-        log(f"ERROR: updated_total_score out of range for {symbol}")
+        log(f"❌ updated_total_score out of range for {symbol}")
         return None
 
     log(
-        f"AI REVALIDATION OK ({symbol}) → "
+        f"✅ AI REVALIDATION OK ({symbol}) → "
         f"score={ai_result['updated_total_score']} | bias={ai_result['bias_label']}"
     )
 
     return ai_result
+
 
 # ==================================================
 # STAGE 5 – SAVE AI RESULT TO news_analyst_revalidation
