@@ -191,7 +191,23 @@ Body: {n.get('body')}
         log(raw_text)
         return None
 
-    ai_result = {k.strip(): v for k, v in ai_result.items()}
+    # --- normalize keys (CRITICAL FIX) ---
+    clean_ai_result = {}
+
+    for k, v in ai_result.items():
+        clean_key = (
+            str(k)
+            .replace("\n", "")
+            .replace("\t", "")
+            .replace('"', "")
+            .replace("'", "")
+            .strip()
+        )
+        clean_ai_result[clean_key] = v
+
+    ai_result = clean_ai_result
+
+    log(f"AI RESULT KEYS CLEAN ({symbol}): {list(ai_result.keys())}")
 
     # --- validate ---
     REQUIRED_KEYS = [
@@ -203,7 +219,7 @@ Body: {n.get('body')}
     for k in REQUIRED_KEYS:
         if k not in ai_result:
             log(f"ERROR: missing key '{k}' for {symbol}")
-            log(ai_result)
+            log(f"AI RESULT CONTENT ({symbol}): {ai_result}")
             return None
 
     return ai_result
