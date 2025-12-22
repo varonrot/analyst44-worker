@@ -2,6 +2,8 @@ import os
 from datetime import datetime
 from supabase import create_client, Client
 
+APP_VERSION = 20251222_1018  # YYYYMMDD_HHMM
+
 # ==================================================
 # CONFIG
 # ==================================================
@@ -22,6 +24,8 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 def log(message: str):
     ts = datetime.utcnow().isoformat()
     print(f"[NEWS-REVALIDATION] {ts} | {message}")
+
+log(f"🚀 NEWS REVALIDATION VERSION LOADED: {APP_VERSION}")
 
 
 def get_symbols_from_fmp_news():
@@ -181,8 +185,7 @@ Body: {n.get('body')}
         for k, v in ai_result.items()
     }
 
-    # 🔥 VERSION CHECK – MUST APPEAR IN LOGS
-    log("🔥 VERSION CHECK: STRIP FIX ACTIVE 🔥")
+    log(f"🔥 STRIP FIX ACTIVE | VERSION={APP_VERSION}")
 
     # --- validate required keys ---
     REQUIRED_KEYS = [
