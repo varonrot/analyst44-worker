@@ -1,6 +1,5 @@
 import os
 import json
-import re
 from datetime import datetime, timezone
 from supabase import create_client, Client
 from openai import OpenAI
@@ -114,13 +113,25 @@ def run_ai(symbol: str, base_score: int, news_block: str):
             log(f"❌ Invalid {field} for {symbol}: {data.get(field)}")
             return None
 
+    # ---- Explanation validation ----
+    if not isinstance(data.get("explanation_text"), str):
+        log(f"❌ Missing explanation_text for {symbol}")
+        return None
+
+    # 80–120 words ≈ 300–900 chars
+    if not (300 <= len(data["explanation_text"]) <= 900):
+        log(f"❌ explanation_text length invalid for {symbol}")
+        return None
+
     return data
+
 def insert_revalidation_result(
     symbol: str,
     base_score: int,
     bias_label: str,
     bias_strength: int,
     updated_total_score: int,
+    explanation_text: str,
     ai_version: str
 ):
     supabase.table("news_analyst_revalidation_results").insert({
@@ -129,9 +140,11 @@ def insert_revalidation_result(
         "bias_label": bias_label,
         "bias_strength": bias_strength,
         "updated_total_score": updated_total_score,
+        "explanation_text": explanation_text,
         "ai_version": ai_version,
         "created_at": datetime.now(timezone.utc).isoformat()
     }).execute()
+
 
 # ==================================================
 # MAIN
@@ -169,6 +182,7 @@ def main():
                 bias_label=result["bias_label"],
                 bias_strength=result["bias_strength"],
                 updated_total_score=result["updated_total_score"],
+                explanation_text=result["explanation_text"],
                 ai_version=APP_VERSION
             )
 
@@ -181,7 +195,7 @@ def main():
                 .eq("symbol", symbol) \
                 .execute()
 
-        # הגנה נגד לולאה אינסופית במקרה של תקלה
+
         log("Batch completed — checking for more inputs")
 
     log("Finished AI Revalidation Step 2.6")

@@ -23,7 +23,7 @@ Allowed bias_label values (choose ONE only):
 IMPORTANT RULES:
 - Return ONLY valid JSON
 - Do NOT add explanations
-- Do NOT add extra fields
+- Return ONLY the fields defined in the JSON format
 - Do NOT return multiple biases
 - Numbers must be integers
 
@@ -33,7 +33,8 @@ JSON FORMAT (must match exactly):
   "symbol": "{{symbol}}",
   "bias_label": "bullish",
   "bias_strength": 72,
-  "updated_total_score": 78
+  "updated_total_score": 78,
+  "explanation_text": "..."
 }}
 
 INPUT DATA:
