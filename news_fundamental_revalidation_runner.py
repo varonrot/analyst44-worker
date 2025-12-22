@@ -288,7 +288,7 @@ def run_for_symbol(symbol: str):
         return
 
     # ---- DEFINE ANALYSIS DATE ----
-    analysis_date = datetime.utcnow().date().isoformat()
+    analysis_date = baseline["analysis_date"]
 
     # ---- STAGE 5 ----
     update_news_analyst_revalidation(
