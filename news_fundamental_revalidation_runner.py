@@ -182,13 +182,27 @@ Body: {n.get('body')}
         return None
 
     raw_text = raw_text[start:end + 1]
- 
+
+    # --- parse JSON ---
     try:
         ai_result = json.loads(raw_text)
     except Exception as e:
         log(f"ERROR parsing AI JSON for {symbol}: {e}")
         log(raw_text)
         return None
+
+    # --- minimal schema validation ---
+    REQUIRED_KEYS = [
+        "fundamental_change_flag",
+        "updated_total_score",
+        "bias_label"
+    ]
+
+    for k in REQUIRED_KEYS:
+        if k not in ai_result:
+            log(f"ERROR: missing key '{k}' for {symbol}")
+            log(ai_result)
+            return None
 
     return ai_result
 
@@ -255,7 +269,11 @@ def run_for_symbol(symbol: str):
         log(f"No AI result for {symbol} – skipping DB update")
         return
 
-    # ---- STAGE 5 ----
+    # --- SAFETY GATE BEFORE STAGE 5 ---
+    if not ai_result:
+        log(f"Skipping {symbol} – invalid AI result")
+        return
+
     update_news_analyst_core(
         symbol=symbol,
         analysis_date=baseline["analysis_date"],
@@ -263,8 +281,6 @@ def run_for_symbol(symbol: str):
     )
 
     log(f"Finished processing for symbol: {symbol}")
-
-
 
 def main():
     log("News Fundamental Revalidation Runner started")
