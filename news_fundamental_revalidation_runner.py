@@ -190,8 +190,10 @@ Body: {n.get('body')}
         log(f"ERROR parsing AI JSON for {symbol}: {e}")
         log(raw_text)
         return None
+ 
+    ai_result = {k.strip(): v for k, v in ai_result.items()}
 
-    # --- minimal schema validation ---
+    # --- validate ---
     REQUIRED_KEYS = [
         "fundamental_change_flag",
         "updated_total_score",
@@ -205,7 +207,6 @@ Body: {n.get('body')}
             return None
 
     return ai_result
-
 
 # ==================================================
 # STAGE 5 – SAVE AI RESULT TO news_analyst_core
