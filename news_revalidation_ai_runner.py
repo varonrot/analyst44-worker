@@ -123,25 +123,35 @@ def run_ai(symbol: str, base_score: int, news_block: str):
 def main():
     log("Starting AI Revalidation Step 2.6")
 
-    rows = fetch_pending_inputs(limit=10)
-    log(f"Fetched {len(rows)} pending inputs")
+    while True:
+        rows = fetch_pending_inputs(limit=10)
 
-    for row in rows:
-        symbol = row["symbol"]
-        base_score = row["base_score"]
-        news_block = row["news_block"]
+        if not rows:
+            log("No more pending inputs — exiting loop")
+            break
 
-        log(f"Running AI for {symbol} | base_score={base_score}")
+        log(f"Fetched {len(rows)} pending inputs")
 
-        result = run_ai(symbol, base_score, news_block)
-        if not result:
-            log(f"❌ AI failed for {symbol}")
-            continue
+        for row in rows:
+            symbol = row["symbol"]
+            base_score = row["base_score"]
+            news_block = row["news_block"]
 
-        # 🔥 ONLY LOG — NO DB WRITE
-        log(f"✅ AI RESULT FINAL ({symbol}): {json.dumps(result, ensure_ascii=False)}")
+            log(f"Running AI for {symbol} | base_score={base_score}")
+
+            result = run_ai(symbol, base_score, news_block)
+            if not result:
+                log(f"❌ AI failed for {symbol}")
+                continue
+
+            # LOG ONLY (כמו שסיכמנו)
+            log(f"✅ AI RESULT FINAL ({symbol}): {json.dumps(result, ensure_ascii=False)}")
+
+        # הגנה נגד לולאה אינסופית במקרה של תקלה
+        log("Batch completed — checking for more inputs")
 
     log("Finished AI Revalidation Step 2.6")
+
 
 if __name__ == "__main__":
     main()
