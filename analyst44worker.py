@@ -105,12 +105,12 @@ def main() -> int:
     ):
         log("Score step finished (may include errors).")
 
-    # 🔹 Step 2.5: News Fundamental Revalidation
+    # Step 2.5: Build News Revalidation Input
     if not run_step(
-        "news_fundamental_revalidation",
-        ["python3", "news_fundamental_revalidation_runner.py"],
+            "news_revalidation_input_builder",
+            ["python3", "news_revalidation_input_builder.py"],
     ):
-        log("Stopping pipeline because news_fundamental_revalidation failed.")
+        log("Stopping pipeline because news_revalidation_input_builder failed.")
         return 1
 
     # Step 3: Save score history
