@@ -22,7 +22,7 @@ Allowed bias_label values (choose ONE only):
 
 IMPORTANT RULES:
 - Return ONLY valid JSON
-- Do NOT add explanations
+- explanation_text is REQUIRED and must contain a concise analytical explanation based only on the provided news
 - Return ONLY the fields defined in the JSON format
 - Do NOT return multiple biases
 - Numbers must be integers

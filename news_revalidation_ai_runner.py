@@ -118,9 +118,14 @@ def run_ai(symbol: str, base_score: int, news_block: str):
         log(f"❌ Missing explanation_text for {symbol}")
         return None
 
-    # 80–120 words ≈ 300–900 chars
-    if not (300 <= len(data["explanation_text"]) <= 900):
-        log(f"❌ explanation_text length invalid for {symbol}")
+    explanation = data.get("explanation_text", "").strip()
+
+    if len(explanation) < 80:
+        log(f"❌ explanation_text too short for {symbol}")
+        return None
+
+    if len(explanation) > 1200:
+        log(f"❌ explanation_text too long for {symbol}")
         return None
 
     return data
@@ -171,7 +176,17 @@ def main():
 
             result = run_ai(symbol, base_score, news_block)
             if not result:
-                log(f"❌ AI failed for {symbol}")
+                log(f"❌ AI failed for {symbol} — marking as processed to avoid loop")
+
+                supabase.table("news_revalidation_input") \
+                    .update({
+                    "processed": True,
+                    "processed_at": datetime.now(timezone.utc).isoformat(),
+                    "error": "ai_validation_failed"
+                }) \
+                    .eq("symbol", symbol) \
+                    .execute()
+
                 continue
 
             log(f"✅ AI RESULT FINAL ({symbol}): {json.dumps(result, ensure_ascii=False)}")
