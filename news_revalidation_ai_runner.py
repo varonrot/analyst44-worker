@@ -1,7 +1,7 @@
 import os
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from supabase import create_client, Client
 from openai import OpenAI
 
@@ -115,6 +115,23 @@ def run_ai(symbol: str, base_score: int, news_block: str):
             return None
 
     return data
+def insert_revalidation_result(
+    symbol: str,
+    base_score: int,
+    bias_label: str,
+    bias_strength: int,
+    updated_total_score: int,
+    ai_version: str
+):
+    supabase.table("news_analyst_revalidation_results").insert({
+        "symbol": symbol,
+        "base_score": base_score,
+        "bias_label": bias_label,
+        "bias_strength": bias_strength,
+        "updated_total_score": updated_total_score,
+        "ai_version": ai_version,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }).execute()
 
 # ==================================================
 # MAIN
@@ -144,8 +161,25 @@ def main():
                 log(f"❌ AI failed for {symbol}")
                 continue
 
-            # LOG ONLY (כמו שסיכמנו)
             log(f"✅ AI RESULT FINAL ({symbol}): {json.dumps(result, ensure_ascii=False)}")
+
+            insert_revalidation_result(
+                symbol=symbol,
+                base_score=base_score,
+                bias_label=result["bias_label"],
+                bias_strength=result["bias_strength"],
+                updated_total_score=result["updated_total_score"],
+                ai_version=APP_VERSION
+            )
+
+            # ✅ mark as processed
+            supabase.table("news_revalidation_input") \
+                .update({
+                "processed": True,
+                "processed_at": datetime.now(timezone.utc).isoformat()
+            }) \
+                .eq("symbol", symbol) \
+                .execute()
 
         # הגנה נגד לולאה אינסופית במקרה של תקלה
         log("Batch completed — checking for more inputs")
