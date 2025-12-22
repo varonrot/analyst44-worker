@@ -190,7 +190,7 @@ Body: {n.get('body')}
         log(f"ERROR parsing AI JSON for {symbol}: {e}")
         log(raw_text)
         return None
- 
+
     ai_result = {k.strip(): v for k, v in ai_result.items()}
 
     # --- validate ---
