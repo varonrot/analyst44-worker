@@ -175,6 +175,12 @@ Body: {n.get('body')}
         log(raw_text)
         return None
 
+    # ✅ FIX: normalize AI keys (strip whitespace / newlines)
+    ai_result = {
+        k.strip(): v
+        for k, v in ai_result.items()
+    }
+
     # --- validate required keys ---
     REQUIRED_KEYS = [
         "updated_total_score",
