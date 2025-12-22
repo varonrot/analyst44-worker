@@ -195,7 +195,7 @@ Body: {n.get('body')}
 
     # --- normalize keys (MANDATORY & FINAL) ---
     def normalize_key(k: str) -> str:
-        return re.sub(r"[^a-zA-Z0-9_]", "", k)
+        return re.sub(r"[^a-zA-Z0-9_]", "", str(k))
 
     ai_result = {
         normalize_key(k): v
