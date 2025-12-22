@@ -113,6 +113,12 @@ def main() -> int:
         log("Stopping pipeline because news_revalidation_input_builder failed.")
         return 1
 
+    # 💡 Step 2.6: Run News Revalidation AI (LOG ONLY)
+    run_step(
+        "news_revalidation_ai",
+        ["python3", "news_revalidation_ai_runner.py"],
+    )
+
     # Step 3: Save score history
     run_step(
         "build_scores_history",
