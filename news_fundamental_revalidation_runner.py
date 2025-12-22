@@ -172,6 +172,17 @@ Body: {n.get('body')}
 
     log(f"AI response received for {symbol}")
 
+    # --- hard JSON extraction ---
+    start = raw_text.find("{")
+    end = raw_text.rfind("}")
+
+    if start == -1 or end == -1:
+        log(f"ERROR: No valid JSON object returned for {symbol}")
+        log(raw_text)
+        return None
+
+    raw_text = raw_text[start:end + 1]
+
     # --- parse JSON ---
     try:
         ai_result = json.loads(raw_text)
