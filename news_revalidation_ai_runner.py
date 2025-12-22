@@ -92,6 +92,10 @@ def run_ai(symbol: str, base_score: int, news_block: str):
 
     try:
         data = json.loads(raw)
+
+        # 🔧 FIX: normalize keys (remove whitespace / newlines)
+        data = {k.strip(): v for k, v in data.items()}
+
     except Exception as e:
         log(f"❌ JSON parse error for {symbol}: {e}")
         return None
