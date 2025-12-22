@@ -121,6 +121,7 @@ def collect_baseline_for_symbol(symbol: str):
 
 import json
 import os
+import re
 from openai import OpenAI
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -180,8 +181,11 @@ Body: {n.get('body')}
         return None
 
     # --- normalize keys (CRITICAL FIX) ---
+    def normalize_key(k: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9_]", "", k)
+
     ai_result = {
-        k.strip(): v
+        normalize_key(k): v
         for k, v in ai_result.items()
     }
 
