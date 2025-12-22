@@ -181,6 +181,9 @@ Body: {n.get('body')}
         for k, v in ai_result.items()
     }
 
+    # 🔥 VERSION CHECK – MUST APPEAR IN LOGS
+    log("🔥 VERSION CHECK: STRIP FIX ACTIVE 🔥")
+
     # --- validate required keys ---
     REQUIRED_KEYS = [
         "updated_total_score",
