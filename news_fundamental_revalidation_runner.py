@@ -182,8 +182,7 @@ Body: {n.get('body')}
         return None
 
     raw_text = raw_text[start:end + 1]
-
-    # --- parse JSON ---
+ 
     try:
         ai_result = json.loads(raw_text)
     except Exception as e:
@@ -192,6 +191,7 @@ Body: {n.get('body')}
         return None
 
     return ai_result
+
 
 # ==================================================
 # STAGE 5 – SAVE AI RESULT TO news_analyst_core
