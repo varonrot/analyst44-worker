@@ -116,7 +116,7 @@ def collect_baseline_for_symbol(symbol: str):
     return baseline
 
 # ==================================================
-# STAGE 4 – SEND BASELINE + NEWS TO AI (FINAL FIX)
+# STAGE 4 – SEND BASELINE + NEWS TO AI (FINAL & STABLE)
 # ==================================================
 
 import json
@@ -169,10 +169,9 @@ Body: {n.get('body')}
         temperature=0.2
     )
 
+    # --- raw text cleanup BEFORE json.loads ---
     raw_text = response.choices[0].message.content or ""
     raw_text = raw_text.strip()
-
-    # 🔥 CRITICAL FIX — clean BEFORE json.loads
     raw_text = raw_text.replace("```json", "").replace("```", "").strip()
     raw_text = raw_text.lstrip("\ufeff")  # remove BOM if exists
 
@@ -181,12 +180,20 @@ Body: {n.get('body')}
     # --- parse JSON strictly ---
     try:
         ai_result = json.loads(raw_text)
+        # 🔥 CRITICAL FIX — handle double-encoded JSON
+        if isinstance(ai_result, str):
+            try:
+                ai_result = json.loads(ai_result)
+            except Exception:
+                log(f"❌ AI returned string instead of dict for {symbol}")
+                log(ai_result)
+                return None
     except Exception as e:
         log(f"❌ ERROR parsing AI JSON for {symbol}: {e}")
         log(f"RAW TEXT ({symbol}): {raw_text}")
         return None
 
-    # --- normalize keys (final safety) ---
+    # --- normalize keys (MANDATORY & FINAL) ---
     def normalize_key(k: str) -> str:
         return re.sub(r"[^a-zA-Z0-9_]", "", k)
 
@@ -240,14 +247,14 @@ from datetime import datetime
 def update_news_analyst_revalidation(symbol: str, analysis_date, ai_result: dict):
     log(f"Persisting AI revalidation result for {symbol}")
 
+    ai_result["summary_30_words"] = str(ai_result.get("summary_30_words", ""))
+
     payload = {
         "symbol": symbol,
         "analysis_date": analysis_date,
-
         "updated_total_score": ai_result["updated_total_score"],
         "bias_label": ai_result["bias_label"],
         "summary_30_words": ai_result["summary_30_words"],
-
         "updated_at": datetime.utcnow().isoformat()
     }
 
@@ -256,8 +263,6 @@ def update_news_analyst_revalidation(symbol: str, analysis_date, ai_result: dict
         .execute()
 
     log(f"news_analyst_revalidation updated for {symbol}")
-
-
 
 # ==================================================
 # ORCHESTRATION
@@ -282,10 +287,13 @@ def run_for_symbol(symbol: str):
         log(f"No AI result for {symbol} – skipping DB update")
         return
 
-    # ---- STAGE 5 (NEW) ----
+    # ---- DEFINE ANALYSIS DATE ----
+    analysis_date = datetime.utcnow().date().isoformat()
+
+    # ---- STAGE 5 ----
     update_news_analyst_revalidation(
         symbol=symbol,
-        analysis_date=baseline["analysis_date"],
+        analysis_date=analysis_date,
         ai_result=ai_result
     )
 
