@@ -11,7 +11,7 @@ Your task:
 2. Assign a bias_strength score from 1 to 100 indicating confidence in the bias.
 3. Calculate an updated_total_score (0–100) that reflects the new outlook AFTER considering the news.
 4. Always return the stock symbol exactly as provided.
-5. Write a structured analytical explanation under explanation_text.
+5. Write a detailed analytical explanation under explanation_text.
 
 Allowed bias_label values (choose ONE only):
 - strong_bullish
@@ -22,18 +22,12 @@ Allowed bias_label values (choose ONE only):
 - high_risk_unclear
 
 Explanation_text requirements (CRITICAL):
-- Write EXACTLY 3 paragraphs
-- Write a TOTAL of EXACTLY 100 words across all paragraphs
-- Paragraph 1: Core earnings results and headline performance
-- Paragraph 2: Growth drivers, guidance, and management commentary
-- Paragraph 3: Risks, limitations, or counterpoints mentioned in the news
-
-Style rules:
-- Professional, neutral analyst tone
-- Interpret the news; do not summarize headlines
-- No speculation beyond the provided news
-- No bullet points
-- No titles or headings
+- Write a continuous analytical explanation (no bullet points)
+- Write AT LEAST 130 words
+- Do NOT exceed 200 words
+- Focus on interpreting earnings results, guidance, and risks based ONLY on the provided news
+- Maintain a professional, neutral analyst tone
+- Do NOT speculate beyond the news
 - Plain text only
 
 IMPORTANT RULES:
@@ -41,17 +35,17 @@ IMPORTANT RULES:
 - Return ONLY the fields defined in the JSON format
 - Do NOT return multiple biases
 - Numbers must be integers
-- Do NOT include word counts or explanations
+- Do NOT include word counts, headings, or explanations outside the JSON
 
 JSON FORMAT (must match exactly):
 
-{{
+{
   "symbol": "{symbol}",
   "bias_label": "bullish",
   "bias_strength": 72,
   "updated_total_score": 78,
   "explanation_text": "..."
-}}
+}
 
 INPUT DATA:
 

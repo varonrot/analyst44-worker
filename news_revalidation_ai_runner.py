@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timezone
 from supabase import create_client, Client
 from openai import OpenAI
+import re
 
 APP_VERSION = "2025-12-22_26"
 
@@ -120,16 +121,14 @@ def run_ai(symbol: str, base_score: int, news_block: str):
 
     explanation = data.get("explanation_text", "").strip()
 
-    # --- Paragraph validation ---
-    paragraphs = [p.strip() for p in explanation.split("\n") if p.strip()]
-    if len(paragraphs) != 3:
-        log(f"❌ explanation_text must contain exactly 3 paragraphs for {symbol}")
+    word_count = len(re.findall(r"\b\w+\b", explanation))
+
+    if word_count < 120:
+        log(f"❌ explanation_text too short for {symbol} ({word_count} words)")
         return None
 
-    # --- Word count validation ---
-    word_count = len(explanation.split())
-    if word_count != 100:
-        log(f"❌ explanation_text must contain exactly 100 words for {symbol} (got {word_count})")
+    if len(explanation) > 1200:
+        log(f"❌ explanation_text too long for {symbol}")
         return None
 
     return data
