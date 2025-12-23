@@ -120,12 +120,16 @@ def run_ai(symbol: str, base_score: int, news_block: str):
 
     explanation = data.get("explanation_text", "").strip()
 
-    if len(explanation) < 80:
-        log(f"❌ explanation_text too short for {symbol}")
+    # --- Paragraph validation ---
+    paragraphs = [p.strip() for p in explanation.split("\n") if p.strip()]
+    if len(paragraphs) != 3:
+        log(f"❌ explanation_text must contain exactly 3 paragraphs for {symbol}")
         return None
 
-    if len(explanation) > 1200:
-        log(f"❌ explanation_text too long for {symbol}")
+    # --- Word count validation ---
+    word_count = len(explanation.split())
+    if word_count != 100:
+        log(f"❌ explanation_text must contain exactly 100 words for {symbol} (got {word_count})")
         return None
 
     return data

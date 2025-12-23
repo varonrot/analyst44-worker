@@ -7,10 +7,11 @@ You are analyzing an earnings-driven stock outlook based on:
 
 Your task:
 
-1. Choose EXACTLY ONE bias_label from the list below.
+1. Choose EXACTLY ONE bias_label from the allowed list.
 2. Assign a bias_strength score from 1 to 100 indicating confidence in the bias.
 3. Calculate an updated_total_score (0–100) that reflects the new outlook AFTER considering the news.
-4. Always return the stock symbol as provided.
+4. Always return the stock symbol exactly as provided.
+5. Write a structured analytical explanation under explanation_text.
 
 Allowed bias_label values (choose ONE only):
 - strong_bullish
@@ -20,22 +21,37 @@ Allowed bias_label values (choose ONE only):
 - strong_bearish
 - high_risk_unclear
 
+Explanation_text requirements (CRITICAL):
+- Write EXACTLY 3 paragraphs
+- Write a TOTAL of EXACTLY 100 words across all paragraphs
+- Paragraph 1: Core earnings results and headline performance
+- Paragraph 2: Growth drivers, guidance, and management commentary
+- Paragraph 3: Risks, limitations, or counterpoints mentioned in the news
+
+Style rules:
+- Professional, neutral analyst tone
+- Interpret the news; do not summarize headlines
+- No speculation beyond the provided news
+- No bullet points
+- No titles or headings
+- Plain text only
+
 IMPORTANT RULES:
 - Return ONLY valid JSON
-- explanation_text is REQUIRED and must contain a concise analytical explanation based only on the provided news
 - Return ONLY the fields defined in the JSON format
 - Do NOT return multiple biases
 - Numbers must be integers
+- Do NOT include word counts or explanations
 
 JSON FORMAT (must match exactly):
 
-{{
-  "symbol": "{{symbol}}",
+{
+  "symbol": "{symbol}",
   "bias_label": "bullish",
   "bias_strength": 72,
   "updated_total_score": 78,
   "explanation_text": "..."
-}}
+}
 
 INPUT DATA:
 
