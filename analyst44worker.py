@@ -119,6 +119,12 @@ def main() -> int:
         ["python3", "news_revalidation_ai_runner.py"],
     )
 
+    # 💡 Step 2.7: Merge earnings news into financial scores
+    run_step(
+        name="merge_earnings_into_financial_scores",
+        cmd=["python3", "merge_earnings_into_financial_scores.py"],
+    )
+
     # Step 3: Save score history
     run_step(
         "build_scores_history",
