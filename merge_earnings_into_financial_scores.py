@@ -21,7 +21,6 @@ def run_earnings_merge():
             updated_total_score,
             bias_label,
             bias_strength,
-            explanation_text,
             created_at
         """)
         .execute()
@@ -29,24 +28,23 @@ def run_earnings_merge():
     )
 
     for r in rows:
-        final_score = round(
+        final_weighted_score = round(
             r["base_score"] * BASE_WEIGHT +
             r["updated_total_score"] * NEWS_WEIGHT
         )
 
         supabase.table("analyst_financial_scores") \
             .update({
-                "total_score": final_score,
-                "earnings_bias_label": r["bias_label"],
-                "earnings_bias_strength": r["bias_strength"],
-                "earnings_explanation_text": r["explanation_text"],
-                "analysis_date": datetime.now(timezone.utc).date().isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat()
+                "news_bias_label": r["bias_label"],
+                "news_bias_strength": r["bias_strength"],
+                "news_score": r["updated_total_score"],
+                "final_weighted_score": final_weighted_score,
+                "news_updated_at": datetime.now(timezone.utc).isoformat()
             }) \
             .eq("symbol", r["symbol"]) \
             .execute()
 
-    print("✅ Earnings merge completed")
+    print("✅ Earnings merge completed (news → final_weighted_score)")
 
 
 if __name__ == "__main__":
