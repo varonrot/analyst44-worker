@@ -129,9 +129,6 @@ def run_ai(symbol: str, base_score: int, news_block: str):
         log(f"❌ explanation_text too short for {symbol} ({word_count} words)")
         return None
 
-    if word_count > 160:  # אופציונלי, אם אתה רוצה תקרה
-        log(f"❌ explanation_text too long for {symbol} ({word_count} words)")
-        return None
 
     return data
 
