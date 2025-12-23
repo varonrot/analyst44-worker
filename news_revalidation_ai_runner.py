@@ -123,12 +123,14 @@ def run_ai(symbol: str, base_score: int, news_block: str):
 
     word_count = len(re.findall(r"\b\w+\b", explanation))
 
+    word_count = len(re.findall(r"\b\w+\b", explanation))
+
     if word_count < 120:
         log(f"❌ explanation_text too short for {symbol} ({word_count} words)")
         return None
 
-    if len(explanation) > 1200:
-        log(f"❌ explanation_text too long for {symbol}")
+    if word_count > 160:  # אופציונלי, אם אתה רוצה תקרה
+        log(f"❌ explanation_text too long for {symbol} ({word_count} words)")
         return None
 
     return data
