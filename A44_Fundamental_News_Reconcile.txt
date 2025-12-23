@@ -39,13 +39,13 @@ IMPORTANT RULES:
 
 JSON FORMAT (must match exactly):
 
-{
+{{
   "symbol": "{symbol}",
   "bias_label": "bullish",
   "bias_strength": 72,
   "updated_total_score": 78,
   "explanation_text": "..."
-}
+}}
 
 INPUT DATA:
 
