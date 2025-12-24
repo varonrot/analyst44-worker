@@ -30,6 +30,7 @@ def run_earnings_merge():
             updated_total_score,
             bias_label,
             bias_strength,
+            explanation_text,
             created_at
         """)
         .execute()
@@ -60,6 +61,7 @@ def run_earnings_merge():
                 # final weighted score
                 "final_weighted_score": int(final_weighted_score),
 
+               "explanation_text": r.get("explanation_text"),
                 # timestamp
                 "news_updated_at": datetime.now(timezone.utc).isoformat()
             }) \
