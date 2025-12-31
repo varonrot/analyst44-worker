@@ -151,14 +151,14 @@ def main() -> int:
         ["python3", "earnings_calendar_us_backfill.py"],
     )
 
+    # Step 5.1: Cleanup earnings calendar (remove recent reporters)
+    run_step(
+        "cleanup_recent_earnings",
+        ["python3", "earnings_calendar_cleanup_recent_reporters.py"],
+    )
+
     log("🎯 analyst44 daily pipeline finished")
     return 0
-
-# Step 5.1: Cleanup earnings calendar (remove recent reporters)
-run_step(
-    "cleanup_recent_earnings",
-    ["python3", "earnings_calendar_cleanup_recent_reporters.py"],
-)
 
 
 if __name__ == "__main__":
