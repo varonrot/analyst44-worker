@@ -1,5 +1,5 @@
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from supabase import create_client, Client
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -14,21 +14,46 @@ def log(msg: str) -> None:
 
 
 def backfill_missing_symbols():
-    today = date.today().isoformat()
+    today_dt = date.today()
+    today = today_dt.isoformat()
+    seven_days_ago = today_dt - timedelta(days=7)
+
     log("STEP 5: Backfilling symbols missing earnings report")
 
-    # 1. Symbols analyzed today
+    # 1. Symbols analyzed today (כולל last_earnings_date)
     scores = (
         supabase
         .table("analyst_financial_scores")
-        .select("symbol")
+        .select("symbol, last_earnings_date")
         .eq("analysis_date", today)
         .execute()
         .data
         or []
     )
 
-    score_symbols = {r["symbol"] for r in scores if r.get("symbol")}
+    eligible_symbols = set()
+
+    for r in scores:
+        symbol = r.get("symbol")
+        last_date = r.get("last_earnings_date")
+
+        if not symbol:
+            continue
+
+        # ✔️ אין דוח קודם
+        if not last_date:
+            eligible_symbols.add(symbol)
+            continue
+
+        try:
+            last_dt = date.fromisoformat(last_date)
+        except Exception:
+            eligible_symbols.add(symbol)
+            continue
+
+        # ✔️ דוח ישן משבוע
+        if last_dt < seven_days_ago:
+            eligible_symbols.add(symbol)
 
     # 2. Symbols already in earnings calendar today
     calendar = (
@@ -43,7 +68,8 @@ def backfill_missing_symbols():
 
     calendar_symbols = {r["symbol"] for r in calendar if r.get("symbol")}
 
-    missing = sorted(score_symbols - calendar_symbols)
+    # 🔑 ההבדל הקריטי כאן
+    missing = sorted(eligible_symbols - calendar_symbols)
 
     if not missing:
         log("No missing symbols found")
