@@ -16,7 +16,7 @@ def log(msg: str) -> None:
 def backfill_missing_symbols():
     today_dt = date.today()
     today = today_dt.isoformat()
-    seven_days_ago = today_dt - timedelta(days=7)
+    seven_days_ago = today_dt - timedelta(days=21)
 
     log("STEP 5: Backfilling symbols missing earnings report")
 
