@@ -51,9 +51,10 @@ def backfill_missing_symbols():
             eligible_symbols.add(symbol)
             continue
 
-        # ✔️ דוח ישן משבוע
-        if last_dt < seven_days_ago:
-            eligible_symbols.add(symbol)
+       # ✔️ דוח ישן מ־3 שבועות
+       if last_dt < three_weeks_ago:
+           eligible_symbols.add(symbol)
+
 
     # 2. Symbols already in earnings calendar today
     calendar = (
